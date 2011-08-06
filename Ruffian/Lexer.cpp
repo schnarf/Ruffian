@@ -1,0 +1,161 @@
+#include "common.h"
+#include "Lexer.h"
+#include <cstdlib>
+
+//! Initialize with a file
+Lexer::Lexer( const shared_ptr<FILE>& pFile ) :
+	m_pFile(pFile),
+	m_lastChar(' '),
+	m_currentToken(TOKEN_UNKNOWN),
+	m_strIdentifier("") {
+
+	// Prime the pump
+	GetNextToken();
+
+} // end Lexer::Lexer()
+
+
+//! Advances to the next token, returning it
+Token Lexer::GetNextToken() {
+	m_currentToken= getTok();
+	return m_currentToken;
+} // end Lexer::GetNextToken()
+
+
+//! Returns the name of the given token
+string Lexer::StringifyToken( Token token ) {
+	switch( token ) {
+	case TOKEN_LPAREN: return "(";
+	case TOKEN_RPAREN: return ")";
+	case TOKEN_LBRACE: return "{";
+	case TOKEN_RBRACE: return "}";
+	case TOKEN_COMMA: return ",";
+	case TOKEN_SEMICOLON: return ";";
+	case TOKEN_ARROW: return "->";
+	case TOKEN_PLUS: return "+";
+	case TOKEN_MINUS: return "-";
+	case TOKEN_STAR: return "*";
+	case TOKEN_SLASH: return "/";
+	case TOKEN_ASSIGN: return "=";
+	case TOKEN_COMPARE: return "==";
+	case TOKEN_DEF: return "def";
+	case TOKEN_VAR: return "var";
+	case TOKEN_IF: return "if";
+	case TOKEN_ELSE: return "else";
+	case TOKEN_LITERAL_INT: return "int literal";
+	case TOKEN_LITERAL_FLOAT: return "float literal";
+	case TOKEN_IDENTIFIER: return "identifier";
+	case TOKEN_EOF: return "eof";
+	case TOKEN_UNKNOWN: return "unknown";
+	default: ASSERT(false); return "unknown";
+	} // end switch token
+} // end Lexer::StringifyToken()
+
+
+//! Gets the next token
+Token Lexer::getTok() {
+	// Skip any whitespace
+	while( isspace(m_lastChar) && m_lastChar != EOF ) readChar();
+
+	// Check for anything that starts with an alphabetic character,
+	// this can be either an identifier or some language keywords
+	if( isalpha(m_lastChar) ) {
+		// Read in all the characters that could possibly be in an identifier
+		m_strIdentifier.clear();
+		while( isalnum(m_lastChar) || m_lastChar == '_' ) {
+			m_strIdentifier+= m_lastChar;
+			readChar();
+		} // end while reading identifier
+
+		// Check for a keyword
+		if( m_strIdentifier == "def" ) return TOKEN_DEF;
+		else if( m_strIdentifier == "var" ) return TOKEN_VAR;
+		else if( m_strIdentifier == "if" ) return TOKEN_IF;
+		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;
+		else return TOKEN_IDENTIFIER;
+	} // end if starts with alphabetic character
+
+	// Check for a numeric literal
+	if( isdigit(m_lastChar) || m_lastChar == '.' ) {
+		string strNum;
+
+		while( isdigit(m_lastChar) || m_lastChar == '.' ) {
+			strNum+= m_lastChar;
+			readChar();
+		} // end while reading numeric literal
+
+		// Try to determine if it's an integer or floating-point literal, or if it's malformed
+		// TODO: 64-bit integer support
+		// TODO: Warn on loss of precision
+		uint nDecimalPoints= 0;
+		for( string::const_iterator itChar=strNum.begin(); itChar!=strNum.end(); ++itChar ) { if( *itChar == '.' ) ++nDecimalPoints; }
+		if( nDecimalPoints == 0 ) {
+			// Integer
+			m_intLiteral= atoi( strNum.c_str() );
+			return TOKEN_LITERAL_INT;
+		} else if( nDecimalPoints == 1 ) {
+			// Float
+			m_floatLiteral= strtod( strNum.c_str(), NULL );
+			return TOKEN_LITERAL_FLOAT;
+		} else {
+			cerr << "Could not parse numeric literal \"" << strNum << "\", expected fewer decimal points\n";
+			return TOKEN_UNKNOWN;
+		}
+	} // end if numeric literal
+
+	// Check for symbols
+	bool bSymbol= false;
+	Token token;
+
+	switch( m_lastChar ) {
+	case '+': token= TOKEN_PLUS; bSymbol= true; break;
+	case '*': token= TOKEN_STAR; bSymbol= true; break;
+	case '/': 
+		if( readChar() == '/' ) {
+			// This is a comment. Skip characters until the end of the line
+			while( m_lastChar != '\n' && m_lastChar != '\r' && m_lastChar != EOF ) readChar();
+			// Now keep parsing
+			return getTok();
+		} else {
+			token= TOKEN_SLASH;
+			bSymbol= true;
+		}
+		break;
+	case '-':
+		if( readChar() == '>' ) { token= TOKEN_ARROW; bSymbol= true; }
+		else { token= TOKEN_MINUS; bSymbol= true; }
+		break;
+	case '(': token= TOKEN_LPAREN; bSymbol= true; break;
+	case ')': token= TOKEN_RPAREN; bSymbol= true; break;
+	case '{': token= TOKEN_LBRACE; bSymbol= true; break;
+	case '}': token= TOKEN_RBRACE; bSymbol= true; break;
+	case ',': token= TOKEN_COMMA; bSymbol= true; break;
+	case ';': token= TOKEN_SEMICOLON; bSymbol= true; break;
+	case EOF: return TOKEN_EOF;
+	default:
+		// Do nothing
+		break;
+	} // end switch last character
+
+	// If we had a symbol, advance to the next character, then return the token
+	if( bSymbol ) {
+		readChar();
+		return token;
+	} // end if symbol token
+
+	// If we get here, something unexpected happened
+	cerr << "Unexpected character '" << m_lastChar << "' encountered when trying to parse a token.\n";
+	return TOKEN_UNKNOWN;
+} // end Lexer::getTok()
+
+
+//! Reads a single character from our file
+char Lexer::readChar() {
+	size_t uRead= fread( &m_lastChar, sizeof(char), 1, m_pFile.get() );
+	if( !uRead ) m_lastChar= EOF;
+	return m_lastChar;
+} // end Lexer::readChar()
+
+
+//! Non-inline destructor
+Lexer::~Lexer() { }

@@ -1,0 +1,34 @@
+#pragma once
+
+#include <iostream>
+using std::cout; using std::cerr; using std::endl;
+
+#include <memory>
+using std::shared_ptr;
+
+#include <string>
+using std::string;
+
+#include <vector>
+using std::vector;
+
+#include <utility>
+using std::pair;
+
+#if _DEBUG
+	#include <cassert>
+	#define ASSERT(cond) assert(cond)
+#else
+	#define ASSERT(cond)
+#endif
+
+typedef signed long long int int64;
+typedef unsigned long long int uint64;
+static_assert( sizeof(int64) == 8, "int64 must be 8 bytes" );
+static_assert( sizeof(uint64) == 8, "uint64 must be 8 bytes" );
+
+typedef signed int int32;
+typedef unsigned int uint32;
+typedef uint32 uint;
+static_assert( sizeof(int32) == 4, "int32 must be 4 bytes" );
+static_assert( sizeof(uint32) == 4, "uint32 must be 4 bytes" );
