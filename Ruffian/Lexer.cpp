@@ -38,6 +38,10 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_SLASH: return "/";
 	case TOKEN_ASSIGN: return "=";
 	case TOKEN_COMPARE: return "==";
+	case TOKEN_LT: return "<";
+	case TOKEN_GT: return ">";
+	case TOKEN_LE: return "<=";
+	case TOKEN_GE: return ">=";
 	case TOKEN_DEF: return "def";
 	case TOKEN_VAR: return "var";
 	case TOKEN_RETURN: return "return";
@@ -61,6 +65,10 @@ bool Lexer::IsBinopToken( Token token ) {
 	case TOKEN_STAR:
 	case TOKEN_SLASH:
 	case TOKEN_COMPARE:
+	case TOKEN_LT:
+	case TOKEN_GT:
+	case TOKEN_LE:
+	case TOKEN_GE:
 		return true;
 	default:
 		return false;
@@ -148,6 +156,14 @@ Token Lexer::getTok() {
 	case '}': token= TOKEN_RBRACE; bEatChar= true; break;
 	case ',': token= TOKEN_COMMA; bEatChar= true; break;
 	case ';': token= TOKEN_SEMICOLON; bEatChar= true; break;
+	case '<':
+		if( readChar() == '=' ) { token= TOKEN_LE; bEatChar= true; }
+		else { token= TOKEN_LT; bEatChar= false; }
+		break;
+	case '>':
+		if( readChar() == '=' ) { token= TOKEN_GE; bEatChar= true; }
+		else { token= TOKEN_GT; bEatChar= false; }
+		break;
 	case '=':
 		if( readChar() == '=' ) { token= TOKEN_COMPARE; bEatChar= true; }
 		else { token= TOKEN_ASSIGN; bEatChar= false; }

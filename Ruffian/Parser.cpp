@@ -2,6 +2,7 @@
 #include "Parser.h"
 #include "Lexer.h"
 #include "FunctionAST.h"
+#include "Scope.h"
 
 //! Initialize with parser
 Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
@@ -25,8 +26,9 @@ void Parser::Run() {
 
 //! Handles a function definition
 void Parser::handleFunctionDefinition() {
-	if( parseFunctionDefinition() ) {
-		//cout << "Parsed a function definition\n";
+	if( FunctionAST* pFunction= parseFunctionDefinition() ) {
+		cout << "Parsed a function definition\n";
+		pFunction->Codegen( m_scope )->dump();
 	} else {
 		// Skip token for error recovery
 		m_pLexer->GetNextToken();
@@ -82,15 +84,13 @@ FunctionAST* Parser::parseFunctionDefinition() {
 		VariableAST* pVariable= parseVariable();
 
 		// Now we can have a comma or rparen
-		if( m_pLexer->GetCurrentToken() == TOKEN_RPAREN ) break;
-
-		if( m_pLexer->GetCurrentToken() != TOKEN_COMMA ) {
-			cerr << "Expected a comma while parsing function definition argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
+		if( m_pLexer->GetCurrentToken() == TOKEN_COMMA ) {
+			// Eat the comma before parsing the next argument
+			m_pLexer->GetNextToken();
+		} else if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+			cerr << "Expected ',' or ')' while parsing function definition argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
 			return NULL;
 		}
-
-		// Eat the comma
-		m_pLexer->GetNextToken();
 
 		args.push_back( make_pair(pType, pVariable) );
 	} // end while parsing argument list
@@ -544,7 +544,7 @@ ConditionalAST* Parser::parseConditionalExpression() {
 	m_pLexer->GetNextToken();
 
 	// Parse the block
-	PrimaryExprAST* pBlock= parseBlock();
+	BlockAST* pBlock= parseBlock();
 	if( !pBlock ) {
 		cerr << "Expected a block while parsing a conditional expression\n";
 		delete pCondExpr;
@@ -552,7 +552,7 @@ ConditionalAST* Parser::parseConditionalExpression() {
 	} // end if no block
 
 	// Check for "else". If we find an else, keep parsing recursively
-	PrimaryExprAST* pElseBlock= NULL;
+	BlockAST* pElseBlock= NULL;
 	if( m_pLexer->GetCurrentToken() == TOKEN_ELSE ) {
 		// Eat the else
 		m_pLexer->GetNextToken();
@@ -568,13 +568,18 @@ ConditionalAST* Parser::parseConditionalExpression() {
 			} // end if no else block
 		} else if( m_pLexer->GetCurrentToken() == TOKEN_IF ) {
 			// Parse the next "if" block
-			pElseBlock= parseConditionalExpression();
-			if( !pElseBlock ) {
+			ConditionalAST* pNextConditional= parseConditionalExpression();
+			if( !pNextConditional ) {
 				cerr << "Expected an else if block while parsing a conditional expression\n";
 				delete pCondExpr;
 				delete pBlock;
 				return NULL;
 			} // end if no else block
+
+			// Build a block containing the next conditional
+			vector<PrimaryExprAST*> pExprs;
+			pExprs.push_back( pNextConditional );
+			pElseBlock= new BlockAST( pExprs );
 		} else {
 			cerr << "Expected '{' or \"if\" after \"else\" while parsing a conditional expression\n";
 			delete pCondExpr;
