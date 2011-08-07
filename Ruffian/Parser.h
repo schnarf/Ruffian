@@ -1,7 +1,7 @@
 #pragma once
 
 class Lexer;
-class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST;
+class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST;
 
 class Parser {
 public:
@@ -39,6 +39,10 @@ private:
 	TypeAST* parseType();
 	//! Parses a function call expression, having already parsed the function name
 	CallAST* parseCallExpression( const string& strName );
+	//! Parses a numeric literal
+	LiteralAST* parseLiteral();
+	//! Parses a conditional expression
+	ConditionalAST* parseConditionalExpression();
 
 	//! Enters a new scope
 	void enterNewScope();

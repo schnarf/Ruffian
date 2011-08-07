@@ -50,11 +50,17 @@ public:
 
 	//! Gets the name of the current identifier token
 	string GetIdentifier() const { ASSERT( GetCurrentToken() == TOKEN_IDENTIFIER ); return m_strIdentifier; }
+	//! Gets the value of the current integer literal token
+	int64 GetIntLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_INT ); return m_intLiteral; }
+	//! Gets the value of the current float literal token
+	double GetFloatLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_FLOAT ); return m_floatLiteral; }
 
 	// Returns the name of the given token
 	static string StringifyToken( Token token );
 	//! Returns whether the current token is a binary operator
 	static bool IsBinopToken( Token token );
+	//! Returns whether the current token is a literal
+	static bool IsLiteralToken( Token token ) { return token == TOKEN_LITERAL_INT || token == TOKEN_LITERAL_FLOAT; }
 
 private:
 	shared_ptr<FILE> m_pFile;			//!< Our file to read from

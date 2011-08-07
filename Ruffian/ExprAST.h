@@ -12,6 +12,9 @@ class PrimaryExprAST : public ExprAST {
 public:
 }; // end class PrimaryExprAST
 
+//! Literal value AST node
+class LiteralAST : public ExprAST { };
+
 class ReturnAST : public PrimaryExprAST {
 public:
 	//! Initialize with return expression
@@ -79,3 +82,33 @@ private:
 	ExprAST* m_pLeft,
 	       * m_pRight;
 }; // end class BinopAST
+
+//! Integer literal AST node
+class IntegerAST : public LiteralAST {
+public:
+	//! Initialize with value
+	IntegerAST( int64 iValue ) : m_iValue(iValue) {}
+private:
+	int64 m_iValue;
+}; // end class IntegerAST
+
+//! Float literal AST node
+class FloatAST : public LiteralAST {
+public:
+	//! Initialize with value
+	FloatAST( double fValue ) : m_fValue(fValue) {}
+private:
+	double m_fValue;
+}; // end class FloatAST
+
+//! Conditional "if" AST Node
+class ConditionalAST : public PrimaryExprAST {
+public:
+	//! Initialize with condition, true block, and optional else block
+	ConditionalAST( ExprAST* pCondExpr, PrimaryExprAST* pIfExpr, PrimaryExprAST* pElseExpr ) :
+		m_pCondExpr(pCondExpr), m_pIfExpr(pIfExpr), m_pElseExpr(pElseExpr) { ASSERT( m_pIfExpr != NULL ); }
+private:
+	ExprAST* m_pCondExpr;
+	PrimaryExprAST* m_pIfExpr;
+	PrimaryExprAST* m_pElseExpr;		// not null
+}; // end class ConditionalAST

@@ -26,7 +26,7 @@ void Parser::Run() {
 //! Handles a function definition
 void Parser::handleFunctionDefinition() {
 	if( parseFunctionDefinition() ) {
-		cout << "Parsed a function definition\n";
+		//cout << "Parsed a function definition\n";
 	} else {
 		// Skip token for error recovery
 		m_pLexer->GetNextToken();
@@ -158,6 +158,7 @@ PrimaryExprAST* Parser::parsePrimaryExpression() {
 		::= return_expression
 		::= assignment_expression
 		::= block
+		::= conditional_expression
 	*/
 
 	switch( m_pLexer->GetCurrentToken() ) {
@@ -165,6 +166,7 @@ PrimaryExprAST* Parser::parsePrimaryExpression() {
 	case TOKEN_RETURN: return parseReturnExpression();
 	case TOKEN_IDENTIFIER: return parseAssignmentExpression();
 	case TOKEN_LBRACE: return parseBlock();
+	case TOKEN_IF: return parseConditionalExpression();
 	default:
 		cerr << "Expected a primary expression\n";
 		return NULL;
@@ -193,6 +195,7 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 
 	   expression
 	    ::= identifier
+		::= literal
 		::= call_expr
 		::= binop_expr
 	*/
@@ -205,19 +208,26 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 	// Now parse until we hit a terminator
 	// We store the expression we are building
 	ExprAST* pExpr= NULL;
-	while( (bSemicolon && m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON)
-		|| (bComma && m_pLexer->GetCurrentToken() != TOKEN_COMMA)
-		|| (bRparen && m_pLexer->GetCurrentToken() != TOKEN_RPAREN) ) {
+	while( !(bSemicolon && m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON)
+		&& !(bComma && m_pLexer->GetCurrentToken() == TOKEN_COMMA)
+		&& !(bRparen && m_pLexer->GetCurrentToken() == TOKEN_RPAREN) ) {
 
-		// We expect an identifier in all cases
-		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-			cerr << "Expected an identifier while parsing an expression, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
+		// We expect an identifier or literal in all cases
+		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER && !Lexer::IsLiteralToken(m_pLexer->GetCurrentToken()) ) {
+			cerr << "Expected an identifier or literal while parsing an expression, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
 			delete pExpr;
 			return NULL;
 		} // end if no identifier
 
-		// Save and eat the identifier
-		string strIdentifier= m_pLexer->GetIdentifier();
+		// Make an AST node for the potential identifier or literal, then eat the identifier/literal
+		Token lastToken= m_pLexer->GetCurrentToken();
+		ExprAST* pLastExpr= NULL;
+		string strIdentifier;
+		if( lastToken == TOKEN_IDENTIFIER ) { pLastExpr= new VariableAST( m_pLexer->GetIdentifier() ); strIdentifier= m_pLexer->GetIdentifier(); }
+		else if( lastToken == TOKEN_LITERAL_INT ) pLastExpr= new IntegerAST( m_pLexer->GetIntLiteral() );
+		else if( lastToken == TOKEN_LITERAL_FLOAT ) pLastExpr= new FloatAST( m_pLexer->GetFloatLiteral() );
+		
+		ASSERT( pLastExpr != NULL );
 		m_pLexer->GetNextToken();
 
 		// Now we'll try to distinguish what kind of expression this is. If we have a terminator,
@@ -230,11 +240,12 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			
 			// Do not eat the terminator
 			ASSERT( pExpr == NULL );
-			pExpr= new VariableAST( strIdentifier );
+			pExpr= pLastExpr;
 			break;
 		} // end if semicolon
-		else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
+		else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN && lastToken == TOKEN_IDENTIFIER ) {
 			ASSERT( pExpr == NULL );
+			delete pLastExpr;
 			pExpr= parseCallExpression( strIdentifier );
 			if( !pExpr ) {
 				cerr << "Could not parse call expression while parsing expression\n";
@@ -246,15 +257,18 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			// This is a binary operator. The expression we've parsed so far is going to be the LHS.
 			// The rest will be the RHS
 			if( pExpr == NULL ) {
-				pExpr= new VariableAST( strIdentifier );
+				pExpr= pLastExpr;
 			} // end if no LHS
+			else {
+				delete pLastExpr;
+			}
 
 			// Eat the binary operator
 			Token binop= m_pLexer->GetCurrentToken();
 			m_pLexer->GetNextToken();
 
 			// Parse the RHS
-			ExprAST* pRight= parseExpression( true, false, false );
+			ExprAST* pRight= parseExpression( bSemicolon, bComma, bRparen );
 			if( !pRight ) {
 				cerr << "Expected a RHS to the binary operator \"" << Lexer::StringifyToken(binop) << "\" while parsing an expression\n";
 				delete pExpr;
@@ -267,6 +281,7 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			// This is a parse error
 			cerr << "Unexpected token \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\" while parsing an expression\n";
 			delete pExpr;
+			delete pLastExpr;
 			return NULL;
 		}
 	} // end while parsing
@@ -402,7 +417,6 @@ VariableAST* Parser::parseVariable() {
 	} // end if no identifier
 
 	string strName= m_pLexer->GetIdentifier();
-	cout << "Parsed variable " << strName << endl;
 	m_pLexer->GetNextToken();
 	return new VariableAST( strName );
 } // end Parser::parseVariable()
@@ -417,7 +431,6 @@ TypeAST* Parser::parseType() {
 	} // end if no identifier
 
 	string strName= m_pLexer->GetIdentifier();
-	cout << "Parsed type " << strName << endl;
 	m_pLexer->GetNextToken();
 	return new TypeAST( strName );
 } // end Parser::parseType()
@@ -451,6 +464,15 @@ CallAST* Parser::parseCallExpression( const string& strName ) {
 		} // end if parse error
 
 		pArgs.push_back( pExpr );
+
+		// We expect a right paren or a comma; eat the comma if there's one
+		if( m_pLexer->GetCurrentToken() == TOKEN_COMMA ) {
+			m_pLexer->GetNextToken();
+		} else if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+			cerr << "Expected ',' or ')' while parsing call expression\n";
+			for( uint i=0; i<pArgs.size(); ++i ) delete pArgs[i];
+			return NULL;
+		}
 	} // end while parsing arguments
 
 	// Eat the right paren
@@ -459,6 +481,110 @@ CallAST* Parser::parseCallExpression( const string& strName ) {
 
 	return new CallAST( strName, pArgs );
 } // end parseCallExpression()
+
+
+//! Parses a numeric literal
+LiteralAST* Parser::parseLiteral() {
+	/* literal
+		::= int_literal
+		::= float_literal
+	*/
+	LiteralAST* pRet= NULL;
+
+	if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_INT ) {
+		pRet= new IntegerAST( m_pLexer->GetIntLiteral() );
+	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_FLOAT ) {
+		pRet= new FloatAST( m_pLexer->GetFloatLiteral() );
+	} else {
+		cerr << "Expected an integer or float literal\n";
+		return NULL;
+	}
+
+	// Now eat the token
+	m_pLexer->GetNextToken();
+
+	return pRet;
+} // end Parser::parseLiteral()
+
+
+//! Parses a conditional expression
+ConditionalAST* Parser::parseConditionalExpression() {
+	/* conditional_expression
+		::= if '(' expression ')' block
+		::= conditional_expression else conditional_expression
+	*/
+
+	// Eat the "if"
+	if( m_pLexer->GetCurrentToken() != TOKEN_IF ) {
+		cerr << "Expected \"if\" while parsing a conditional expression\n";
+		return NULL;
+	} // end if no "if"
+	m_pLexer->GetNextToken();
+
+	// Find the left paren and eat it
+	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
+		cerr << "Expected '(' after \"if\" while parsing a conditional expression\n";
+		return NULL;
+	} // end if no lparen
+	m_pLexer->GetNextToken();
+
+	// Parse the expression up to the right paren
+	ExprAST* pCondExpr= parseExpression( false, false, true );
+	if( !pCondExpr ) {
+		cerr << "Expected an expression between parentheses while parsing a conditional expression\n";
+		return NULL;
+	} // end if no expression
+
+	// Now find and eat the right paren
+	if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+		cerr << "Expected ')' after condition while parsing a conditional expression\n";
+		delete pCondExpr;
+		return NULL;
+	} // end if no right paren
+	m_pLexer->GetNextToken();
+
+	// Parse the block
+	PrimaryExprAST* pBlock= parseBlock();
+	if( !pBlock ) {
+		cerr << "Expected a block while parsing a conditional expression\n";
+		delete pCondExpr;
+		return NULL;
+	} // end if no block
+
+	// Check for "else". If we find an else, keep parsing recursively
+	PrimaryExprAST* pElseBlock= NULL;
+	if( m_pLexer->GetCurrentToken() == TOKEN_ELSE ) {
+		// Eat the else
+		m_pLexer->GetNextToken();
+
+		// Now we either expect a left brace or "if"
+		if( m_pLexer->GetCurrentToken() == TOKEN_LBRACE ) {
+			pElseBlock= parseBlock();
+			if( !pElseBlock ) {
+				cerr << "Expected an else block while parsing a conditional expression\n";
+				delete pCondExpr;
+				delete pBlock;
+				return NULL;
+			} // end if no else block
+		} else if( m_pLexer->GetCurrentToken() == TOKEN_IF ) {
+			// Parse the next "if" block
+			pElseBlock= parseConditionalExpression();
+			if( !pElseBlock ) {
+				cerr << "Expected an else if block while parsing a conditional expression\n";
+				delete pCondExpr;
+				delete pBlock;
+				return NULL;
+			} // end if no else block
+		} else {
+			cerr << "Expected '{' or \"if\" after \"else\" while parsing a conditional expression\n";
+			delete pCondExpr;
+			delete pBlock;
+			return NULL;
+		}
+	}
+
+	return new ConditionalAST( pCondExpr, pBlock, pElseBlock );
+} // end Parser::parseConditionalExpression()
 
 
 //! Enters a new scope
