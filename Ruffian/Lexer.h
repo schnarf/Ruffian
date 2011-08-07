@@ -21,7 +21,7 @@ enum Token {
 	
 	TOKEN_DEF,
 	TOKEN_VAR,
-
+	TOKEN_RETURN,
 	TOKEN_IF,
 	TOKEN_ELSE,
 
@@ -53,6 +53,8 @@ public:
 
 	// Returns the name of the given token
 	static string StringifyToken( Token token );
+	//! Returns whether the current token is a binary operator
+	static bool IsBinopToken( Token token );
 
 private:
 	shared_ptr<FILE> m_pFile;			//!< Our file to read from

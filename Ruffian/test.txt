@@ -1,0 +1,10 @@
+def factorial ( int n ) -> int {
+	//if( n == 0 ) { return 1; }
+	//return n * factorial(n-1);
+	return n;
+}
+
+def myfunc(int a, int b) -> int {
+	var int temp= a * b;
+	return a + b;
+}

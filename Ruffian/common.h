@@ -13,7 +13,7 @@ using std::string;
 using std::vector;
 
 #include <utility>
-using std::pair;
+using std::pair; using std::make_pair;
 
 #if _DEBUG
 	#include <cassert>

@@ -40,6 +40,7 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_COMPARE: return "==";
 	case TOKEN_DEF: return "def";
 	case TOKEN_VAR: return "var";
+	case TOKEN_RETURN: return "return";
 	case TOKEN_IF: return "if";
 	case TOKEN_ELSE: return "else";
 	case TOKEN_LITERAL_INT: return "int literal";
@@ -51,6 +52,20 @@ string Lexer::StringifyToken( Token token ) {
 	} // end switch token
 } // end Lexer::StringifyToken()
 
+
+//! Returns whether the current token is a binary operator
+bool Lexer::IsBinopToken( Token token ) {
+	switch( token ) {
+	case TOKEN_PLUS:
+	case TOKEN_MINUS:
+	case TOKEN_STAR:
+	case TOKEN_SLASH:
+	case TOKEN_COMPARE:
+		return true;
+	default:
+		return false;
+	} // end switch token
+} // end Lexer::IsBinopToken()
 
 //! Gets the next token
 Token Lexer::getTok() {
@@ -70,6 +85,7 @@ Token Lexer::getTok() {
 		// Check for a keyword
 		if( m_strIdentifier == "def" ) return TOKEN_DEF;
 		else if( m_strIdentifier == "var" ) return TOKEN_VAR;
+		else if( m_strIdentifier == "return" ) return TOKEN_RETURN;
 		else if( m_strIdentifier == "if" ) return TOKEN_IF;
 		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;
 		else return TOKEN_IDENTIFIER;
@@ -104,12 +120,13 @@ Token Lexer::getTok() {
 	} // end if numeric literal
 
 	// Check for symbols
-	bool bSymbol= false;
+	bool bEatChar= false;
+	bool bSymbol= true;
 	Token token;
 
 	switch( m_lastChar ) {
-	case '+': token= TOKEN_PLUS; bSymbol= true; break;
-	case '*': token= TOKEN_STAR; bSymbol= true; break;
+	case '+': token= TOKEN_PLUS; bEatChar= true; break;
+	case '*': token= TOKEN_STAR; bEatChar= true; break;
 	case '/': 
 		if( readChar() == '/' ) {
 			// This is a comment. Skip characters until the end of the line
@@ -118,28 +135,32 @@ Token Lexer::getTok() {
 			return getTok();
 		} else {
 			token= TOKEN_SLASH;
-			bSymbol= true;
+			bEatChar= true;
 		}
 		break;
 	case '-':
-		if( readChar() == '>' ) { token= TOKEN_ARROW; bSymbol= true; }
-		else { token= TOKEN_MINUS; bSymbol= true; }
+		if( readChar() == '>' ) { token= TOKEN_ARROW; bEatChar= true; }
+		else { token= TOKEN_MINUS; bEatChar= false; }
 		break;
-	case '(': token= TOKEN_LPAREN; bSymbol= true; break;
-	case ')': token= TOKEN_RPAREN; bSymbol= true; break;
-	case '{': token= TOKEN_LBRACE; bSymbol= true; break;
-	case '}': token= TOKEN_RBRACE; bSymbol= true; break;
-	case ',': token= TOKEN_COMMA; bSymbol= true; break;
-	case ';': token= TOKEN_SEMICOLON; bSymbol= true; break;
+	case '(': token= TOKEN_LPAREN; bEatChar= true; break;
+	case ')': token= TOKEN_RPAREN; bEatChar= true; break;
+	case '{': token= TOKEN_LBRACE; bEatChar= true; break;
+	case '}': token= TOKEN_RBRACE; bEatChar= true; break;
+	case ',': token= TOKEN_COMMA; bEatChar= true; break;
+	case ';': token= TOKEN_SEMICOLON; bEatChar= true; break;
+	case '=':
+		if( readChar() == '=' ) { token= TOKEN_COMPARE; bEatChar= true; }
+		else { token= TOKEN_ASSIGN; bEatChar= false; }
+		break;
 	case EOF: return TOKEN_EOF;
 	default:
-		// Do nothing
+		bSymbol= false;
 		break;
 	} // end switch last character
 
 	// If we had a symbol, advance to the next character, then return the token
 	if( bSymbol ) {
-		readChar();
+		if( bEatChar ) readChar();
 		return token;
 	} // end if symbol token
 
