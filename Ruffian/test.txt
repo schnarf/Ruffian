@@ -7,3 +7,7 @@ def myfunc(int a, int b) -> int {
 	var int temp= a * 2;
 	return temp + b;
 }
+
+def opt_test(int x) -> int {
+	return (1+2+x) * (x+(1+2));
+}

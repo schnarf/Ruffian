@@ -7,6 +7,7 @@
 //! Initialize with parser
 Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
 	m_pLexer(pLexer) {
+
 } // end Parser::Parser()
 
 
@@ -193,11 +194,15 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 	   binop_expr
 		::= expression binop expression
 
+	   paren_expr
+	    ::= '(' expression ')'
+
 	   expression
 	    ::= identifier
 		::= literal
 		::= call_expr
 		::= binop_expr
+		::= paren_expr
 	*/
 
 	// If we have a semicolon already, then this is an empty expression
@@ -212,13 +217,6 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 		&& !(bComma && m_pLexer->GetCurrentToken() == TOKEN_COMMA)
 		&& !(bRparen && m_pLexer->GetCurrentToken() == TOKEN_RPAREN) ) {
 
-		// We expect an identifier or literal in all cases
-		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER && !Lexer::IsLiteralToken(m_pLexer->GetCurrentToken()) ) {
-			cerr << "Expected an identifier or literal while parsing an expression, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
-			delete pExpr;
-			return NULL;
-		} // end if no identifier
-
 		// Make an AST node for the potential identifier or literal, then eat the identifier/literal
 		Token lastToken= m_pLexer->GetCurrentToken();
 		ExprAST* pLastExpr= NULL;
@@ -226,13 +224,12 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 		if( lastToken == TOKEN_IDENTIFIER ) { pLastExpr= new VariableAST( m_pLexer->GetIdentifier() ); strIdentifier= m_pLexer->GetIdentifier(); }
 		else if( lastToken == TOKEN_LITERAL_INT ) pLastExpr= new IntegerAST( m_pLexer->GetIntLiteral() );
 		else if( lastToken == TOKEN_LITERAL_FLOAT ) pLastExpr= new FloatAST( m_pLexer->GetFloatLiteral() );
-		
-		ASSERT( pLastExpr != NULL );
-		m_pLexer->GetNextToken();
+
+		if( pLastExpr ) m_pLexer->GetNextToken();
 
 		// Now we'll try to distinguish what kind of expression this is. If we have a terminator,
 		// it's a variable expression.
-		// If we have a lparen, it's a function call.
+		// If we have a lparen, it's a function call or paren expression
 		// If we have a binary opertor, it's a binop expression
 		if( (bSemicolon && m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON)
 			|| (bComma && m_pLexer->GetCurrentToken() == TOKEN_COMMA)
@@ -249,10 +246,24 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			pExpr= parseCallExpression( strIdentifier );
 			if( !pExpr ) {
 				cerr << "Could not parse call expression while parsing expression\n";
-				delete pExpr;
 				return NULL;
 			} // end if parse error
 		} // end if function call
+		else if( lastToken == TOKEN_LPAREN && !pLastExpr ) {
+			ASSERT( pExpr == NULL );
+			// Eat the lparen
+			m_pLexer->GetNextToken();
+			// Parse the expression up until the rparen
+			pExpr= parseExpression( false, false, true );
+			if( !pExpr ) {
+				cerr << "Could not parse paren expression while parsing expression\n";
+				return NULL;
+			} // end if parse error
+
+			// Eat the rparen
+			ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
+			m_pLexer->GetNextToken();
+		} // end if paren expression
 		else if( Lexer::IsBinopToken(m_pLexer->GetCurrentToken()) ) {
 			// This is a binary operator. The expression we've parsed so far is going to be the LHS.
 			// The rest will be the RHS
@@ -277,6 +288,10 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 
 			// Now create the binop
 			pExpr= new BinopAST( binop, pExpr, pRight );
+		} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
+			// Paren expression
+			ASSERT( pExpr == NULL );
+
 		} else {
 			// This is a parse error
 			cerr << "Unexpected token \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\" while parsing an expression\n";
