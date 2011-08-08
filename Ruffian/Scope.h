@@ -5,7 +5,7 @@ class llvm::AllocaInst;
 class Scope {
 public:
 	//! Initialize our empty scope
-	Scope() : m_scopes(1), m_pModule(new llvm::Module("module", llvm::getGlobalContext())), m_builder(llvm::getGlobalContext()) {}
+	Scope();
 
 	//! Enters a new scope
 	void Enter() {
@@ -56,9 +56,13 @@ public:
 	} // end RegisterFunction()*/
 
 	//! Gets our module
-	llvm::Module* GetModule() { return m_pModule.get(); }
+	llvm::Module* GetModule() { return m_pModule; }
 	//! Gets our IR builder
 	llvm::IRBuilder<>& GetBuilder() { return m_builder; }
+	//! Gets our execution engine
+	llvm::ExecutionEngine* GetExecutionEngine() { return m_pExecutionEngine; }
+	//! Gets our function pass manager
+	llvm::FunctionPassManager& GetFunctionPassManager() { return m_fpm; }
 private:
 	struct Frame {
 		map<string, llvm::AllocaInst*> variables;
@@ -67,8 +71,10 @@ private:
 
 	vector<Frame> m_scopes;		//!< Our existing scopes
 
-	shared_ptr<llvm::Module> m_pModule;
+	llvm::Module* m_pModule;
 	llvm::IRBuilder<> m_builder;
+	llvm::ExecutionEngine* m_pExecutionEngine;
+	llvm::FunctionPassManager m_fpm;
 }; // end class Scope
 
 //! Sentry for entering/exiting a scope

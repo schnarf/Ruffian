@@ -30,6 +30,9 @@
     <ClCompile Include="CodegenAST.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Scope.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lexer.h">
@@ -53,6 +56,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="test.txt">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="TestMultipleBinop.txt">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

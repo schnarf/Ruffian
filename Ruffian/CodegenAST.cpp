@@ -163,6 +163,9 @@ Value* FunctionAST::Codegen( Scope& scope ) {
 	// Validate the generated code, checking for consistency
 	verifyFunction( *pFunction );
 
+	// Optimize
+	scope.GetFunctionPassManager().run( *pFunction );
+
 	return pFunction;
 #endif
 

@@ -6,6 +6,8 @@
 
 int main( int argc, char* argv[] ) {
 
+	llvm::InitializeNativeTarget();
+
 	// We expect one argument: a filename
 	if( argc != 2 ) {
 		cerr << "Usage: " << argv[0] << " filename\n";
@@ -25,6 +27,6 @@ int main( int argc, char* argv[] ) {
 	// Create a parser and run the main loop
 	shared_ptr<Parser> pParser( new Parser(pLexer) );
 	pParser->Run();
-	
+
 	return 0;
 }

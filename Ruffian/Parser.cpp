@@ -29,7 +29,15 @@ void Parser::Run() {
 void Parser::handleFunctionDefinition() {
 	if( FunctionAST* pFunction= parseFunctionDefinition() ) {
 		cout << "Parsed a function definition\n";
-		pFunction->Codegen( m_scope )->dump();
+		llvm::Function* pFunctionCode= dynamic_cast<llvm::Function*>(pFunction->Codegen(m_scope));
+		pFunctionCode->dump();
+
+		// JIT the function, returning a function pointer.
+		void* pFunctionPointer = m_scope.GetExecutionEngine()->getPointerToFunction( pFunctionCode );
+      
+		// Cast it to the right type so we can call it as a native function.
+		int64 (*func)(int64) = (int64 (*)(int64))(intptr_t)pFunctionPointer;
+		fprintf(stderr, "Evaluated to %i\n", int(func(4)));
 	} else {
 		// Skip token for error recovery
 		m_pLexer->GetNextToken();
