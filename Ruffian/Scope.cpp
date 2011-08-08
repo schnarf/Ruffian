@@ -15,13 +15,15 @@ Scope::Scope() :
 	m_pExecutionEngine(EngineBuilder(m_pModule).setErrorStr(&strError).create()),
 	m_fpm(m_pModule) {
 
-	if( !m_pExecutionEngine ) { /*ASSERT( false );*/ cerr << strError << endl; return; }
+	if( !m_pExecutionEngine ) { ASSERT( false ); cerr << strError << endl; return; }
 
 	// Set up the optimizer pipeline.  Start with registering info about how the
 	// target lays out data structures.
-	//m_fpm.add(new TargetData(*m_pExecutionEngine->getTargetData()));
+	if( m_pExecutionEngine ) m_fpm.add(new TargetData(*m_pExecutionEngine->getTargetData()));
 	// Provide basic AliasAnalysis support for GVN.
 	m_fpm.add(createBasicAliasAnalysisPass());
+	// Promote allocas to registers.
+    m_fpm.add(createPromoteMemoryToRegisterPass());
 	// Do simple "peephole" optimizations and bit-twiddling optzns.
 	m_fpm.add(createInstructionCombiningPass());
 	// Reassociate expressions.
