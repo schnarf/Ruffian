@@ -87,6 +87,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">common.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="ExprAST.cpp" />
+    <ClCompile Include="FunctionAST.cpp" />
     <ClCompile Include="Lexer.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">common.h</PrecompiledHeaderFile>
@@ -106,14 +108,20 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">common.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="Scope.cpp" />
+    <ClCompile Include="StmtAST.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AST.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="ExprAST.h" />
     <ClInclude Include="FunctionAST.h" />
     <ClInclude Include="Lexer.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Scope.h" />
+    <ClInclude Include="SemBinop.h" />
+    <ClInclude Include="SemScope.h" />
+    <ClInclude Include="StmtAST.h" />
+    <ClInclude Include="TypeAST.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="test.txt" />

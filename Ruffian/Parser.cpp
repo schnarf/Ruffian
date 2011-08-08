@@ -1,7 +1,7 @@
 #include "common.h"
 #include "Parser.h"
+#include "AST.h"
 #include "Lexer.h"
-#include "FunctionAST.h"
 #include "Scope.h"
 
 //! Initialize with parser
@@ -36,8 +36,10 @@ void Parser::handleFunctionDefinition() {
 		void* pFunctionPointer = m_scope.GetExecutionEngine()->getPointerToFunction( pFunctionCode );
       
 		// Cast it to the right type so we can call it as a native function.
-		int64 (*func)(int64) = (int64 (*)(int64))(intptr_t)pFunctionPointer;
-		fprintf(stderr, "Evaluated to %i\n", int(func(4)));
+		if( pFunction->GetArgs().size() == 1 && pFunction->GetArgs()[0]->GetType() == TypeAST::GetInt() && pFunction->GetReturnType() == TypeAST::GetInt() ) {
+			int64 (*func)(int64) = (int64 (*)(int64))(intptr_t)pFunctionPointer;
+			fprintf(stderr, "Evaluated to %i\n", int(func(4)));
+		} // end if proper function signature
 	} else {
 		// Skip token for error recovery
 		m_pLexer->GetNextToken();
@@ -77,7 +79,10 @@ FunctionAST* Parser::parseFunctionDefinition() {
 	// Eat the lparen
 	m_pLexer->GetNextToken();
 
-	vector< pair<TypeAST*, VariableAST*> > args;
+	// Enter a new scope
+	ScopeSentry s_scope( this );
+
+	vector<DeclarationAST*> pArgs;
 	while( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
 		// typename identifier ','
 		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
@@ -90,7 +95,13 @@ FunctionAST* Parser::parseFunctionDefinition() {
 			cerr << "Expected an identifier (variable) while parsing function definition argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
 			return NULL;
 		}
-		VariableAST* pVariable= parseVariable();
+
+		string strVariable= m_pLexer->GetIdentifier();
+		m_pLexer->GetNextToken();
+
+		// Create a declaration in scope for this argument
+		DeclarationAST* pDeclaration= new DeclarationAST( strVariable, pType );
+		if( !addVariableToScope(pDeclaration) ) return NULL;
 
 		// Now we can have a comma or rparen
 		if( m_pLexer->GetCurrentToken() == TOKEN_COMMA ) {
@@ -101,7 +112,7 @@ FunctionAST* Parser::parseFunctionDefinition() {
 			return NULL;
 		}
 
-		args.push_back( make_pair(pType, pVariable) );
+		pArgs.push_back( pDeclaration );
 	} // end while parsing argument list
 
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
@@ -120,6 +131,11 @@ FunctionAST* Parser::parseFunctionDefinition() {
 	
 	TypeAST* pReturnType= parseType();
 
+	// Now lookup the prototype, and create it if it does not exist
+	PrototypeAST* pPrototype= findPrototypeInScope( strName );
+	if( !pPrototype ) pPrototype= new PrototypeAST( strName, pReturnType, pArgs );
+	bool bPrototypeDoesNotExist= addPrototypeToScope( pPrototype ); ASSERT( bPrototypeDoesNotExist );
+
 	 // Now look for the opening brace
 	if( m_pLexer->GetCurrentToken() != TOKEN_LBRACE ) {
 		cerr << "Expected '{' while parsing function definition\n";
@@ -128,8 +144,16 @@ FunctionAST* Parser::parseFunctionDefinition() {
 
 	// Parse the function's body
 	BlockAST* pBody= parseBlock();
+	if( !pBody ) {
+		cerr << "Could not parse function body\n";
+		return NULL;
+	} // end if couldn't parse body
 
-	return new FunctionAST( strName, pReturnType, args, pBody );
+	// Add the function to scope
+	FunctionAST* pFunction= new FunctionAST( pPrototype, pBody );
+	if( !addFunctionToScope(pFunction) ) { delete pFunction; delete pPrototype; return NULL; }
+
+	return pFunction;
 
 } // end Parser::parseFunctionDefinition()
 
@@ -137,15 +161,19 @@ FunctionAST* Parser::parseFunctionDefinition() {
 //! Parses a block
 BlockAST* Parser::parseBlock() {
 	/* block
-		::= '{' primary_expression* '}'
+		::= '{' statements* '}'
 	*/
+
+	// Enter a new scope
+	ScopeSentry s_scope( this );
+
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_LBRACE );
-	vector<PrimaryExprAST*> pExprs;
+	vector<StmtAST*> pExprs;
 	m_pLexer->GetNextToken();
 	while( m_pLexer->GetCurrentToken() != TOKEN_RBRACE ) {
-		PrimaryExprAST* pExpr= parsePrimaryExpression();
+		StmtAST* pExpr= parseStatement();
 		if( !pExpr ) {
-			cerr << "Could not parse primary expression while parsing a block\n";
+			cerr << "Could not parse statement while parsing a block\n";
 			return NULL;
 		} // end if parse error
 
@@ -160,27 +188,27 @@ BlockAST* Parser::parseBlock() {
 } // end Parser::parseBlock()
 
 
-//! Parses a primary expression
-PrimaryExprAST* Parser::parsePrimaryExpression() {
-	/* primary_expression
+//! Parses a statement
+StmtAST* Parser::parseStatement() {
+	/* statement
 		::= variable_declaration
-		::= return_expression
-		::= assignment_expression
+		::= return_stmt
+		::= assignment_stmt
 		::= block
-		::= conditional_expression
+		::= conditional_stmt
 	*/
 
 	switch( m_pLexer->GetCurrentToken() ) {
 	case TOKEN_VAR: return parseVariableDeclaration();
-	case TOKEN_RETURN: return parseReturnExpression();
+	case TOKEN_RETURN: return parseReturnStatement();
 	case TOKEN_IDENTIFIER: return parseAssignmentExpression();
 	case TOKEN_LBRACE: return parseBlock();
-	case TOKEN_IF: return parseConditionalExpression();
+	case TOKEN_IF: return parseConditionalStatement();
 	default:
 		cerr << "Expected a primary expression\n";
 		return NULL;
 	} // end switch current token
-} // end Parser::parsePrimaryExpression()
+} // end Parser::parseStatement()
 
 
 //! Parses an expression
@@ -229,7 +257,7 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 		Token lastToken= m_pLexer->GetCurrentToken();
 		ExprAST* pLastExpr= NULL;
 		string strIdentifier;
-		if( lastToken == TOKEN_IDENTIFIER ) { pLastExpr= new VariableAST( m_pLexer->GetIdentifier() ); strIdentifier= m_pLexer->GetIdentifier(); }
+		if( lastToken == TOKEN_IDENTIFIER ) { pLastExpr= new VariableAST( findVariableInScope(m_pLexer->GetIdentifier()) ); strIdentifier= m_pLexer->GetIdentifier(); }
 		else if( lastToken == TOKEN_LITERAL_INT ) pLastExpr= new IntegerAST( m_pLexer->GetIntLiteral() );
 		else if( lastToken == TOKEN_LITERAL_FLOAT ) pLastExpr= new FloatAST( m_pLexer->GetFloatLiteral() );
 
@@ -318,10 +346,10 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 } // end Parser:parseExpression()
 
 
-//! Parses a return expression
-ReturnAST* Parser::parseReturnExpression() {
-	/* return_expression
-		::= 'return' expression
+//! Parses a return statment
+ReturnAST* Parser::parseReturnStatement() {
+	/* return_stmt
+		::= 'return' expression ';'
 	*/
 
 	if( m_pLexer->GetCurrentToken() != TOKEN_RETURN ) {
@@ -341,7 +369,7 @@ ReturnAST* Parser::parseReturnExpression() {
 	m_pLexer->GetNextToken();
 
 	return new ReturnAST( pExpr );
-} // end Parser::parseReturnExpression()
+} // end Parser::parseReturnStatement()
 
 
 //! Parses a variable declaration
@@ -392,7 +420,7 @@ DeclarationAST* Parser::parseVariableDeclaration() {
 	// Now eat the current token, which we expect to be a semicolon, then create the declaration AST
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
-	return new DeclarationAST( new VariableAST(strName), new TypeAST(strType), pInitializer );
+	return new DeclarationAST( strName, new TypeAST(strType), pInitializer );
 } // end Parser::parseVariableDeclaration()
 
 
@@ -400,7 +428,7 @@ DeclarationAST* Parser::parseVariableDeclaration() {
 AssignmentAST* Parser::parseAssignmentExpression() {
 	// TODO: allow expressions to be lvalues, like array[2]
 
-	/* assignment_expression
+	/* assignment_stmt
 		::= identifier '=' expression ';'
 	*/
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
@@ -427,7 +455,15 @@ AssignmentAST* Parser::parseAssignmentExpression() {
 	// Now we expect a semicolon, which we should eat
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
-	return new AssignmentAST( new VariableAST(strTarget), pExpr );
+
+	// Look up the variable declaration
+	DeclarationAST* pDeclaration= findVariableInScope( strTarget );
+	if( !pDeclaration ) {
+		cerr << "Variable \"" << strTarget << "\" was not declared in the current scope, in assignment expression\n";
+		return NULL;
+	} // end if not declared
+
+	return new AssignmentAST( new VariableAST(pDeclaration), pExpr );
 } // end Parser::parseAssignmentExpression()
 
 
@@ -441,7 +477,15 @@ VariableAST* Parser::parseVariable() {
 
 	string strName= m_pLexer->GetIdentifier();
 	m_pLexer->GetNextToken();
-	return new VariableAST( strName );
+
+	// Find the declaration
+	DeclarationAST* pDeclaration= findVariableInScope( strName );
+	if( !pDeclaration ) {
+		cerr << "Variable \"" << strName << "\" was not declared in the current scope\n";
+		return NULL;
+	} // end if not declared
+
+	return new VariableAST( pDeclaration );
 } // end Parser::parseVariable()
 
 
@@ -468,6 +512,13 @@ CallAST* Parser::parseCallExpression( const string& strName ) {
 	   call_expr
 	    ::= identifier '(' expression_list ')'
 	*/
+
+	// Look up the function prototype and check if we succeeded
+	PrototypeAST* pPrototype= findPrototypeInScope( strName );
+	if( !pPrototype ) {
+		cerr << "Function \"" << strName << "\" was not declared in the current scope, while parsing a call expression\n";
+		return NULL;
+	} // end if lookup failed
 
 	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
 		cerr << "Expected '(' while parsing function call argument list\n";
@@ -502,7 +553,20 @@ CallAST* Parser::parseCallExpression( const string& strName ) {
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
 	m_pLexer->GetNextToken();
 
-	return new CallAST( strName, pArgs );
+	// Verify the function's signature
+	if( pArgs.size() != pPrototype->GetArgs().size() ) {
+		cerr << "Wrong number of arguments in function call. Found " << pArgs.size() << " but expected " << pPrototype->GetArgs().size() << "\n";
+		return NULL;
+	} // end if wrong number of arguments
+
+	for( uint iArg=0; iArg<pArgs.size(); ++iArg ) {
+		if( pArgs[iArg]->GetType() != pPrototype->GetArgs()[iArg]->GetType() ) {
+			cerr << "Argument " << 1+iArg << " for function " << strName << " has the wrong type\n";
+			return NULL;
+		} // end if wrong type
+	} // end for argument
+
+	return new CallAST( pPrototype, pArgs );
 } // end parseCallExpression()
 
 
@@ -511,6 +575,7 @@ LiteralAST* Parser::parseLiteral() {
 	/* literal
 		::= int_literal
 		::= float_literal
+		::= bool_literal
 	*/
 	LiteralAST* pRet= NULL;
 
@@ -518,6 +583,8 @@ LiteralAST* Parser::parseLiteral() {
 		pRet= new IntegerAST( m_pLexer->GetIntLiteral() );
 	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_FLOAT ) {
 		pRet= new FloatAST( m_pLexer->GetFloatLiteral() );
+	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_BOOL ) {
+		pRet= new BoolAST( m_pLexer->GetBoolLiteral() );
 	} else {
 		cerr << "Expected an integer or float literal\n";
 		return NULL;
@@ -530,23 +597,23 @@ LiteralAST* Parser::parseLiteral() {
 } // end Parser::parseLiteral()
 
 
-//! Parses a conditional expression
-ConditionalAST* Parser::parseConditionalExpression() {
-	/* conditional_expression
+//! Parses a conditional statements
+ConditionalAST* Parser::parseConditionalStatement() {
+	/* conditional_stmt
 		::= if '(' expression ')' block
-		::= conditional_expression else conditional_expression
+		::= conditional_stmt else conditional_stmt
 	*/
 
 	// Eat the "if"
 	if( m_pLexer->GetCurrentToken() != TOKEN_IF ) {
-		cerr << "Expected \"if\" while parsing a conditional expression\n";
+		cerr << "Expected \"if\" while parsing a conditional statement\n";
 		return NULL;
 	} // end if no "if"
 	m_pLexer->GetNextToken();
 
 	// Find the left paren and eat it
 	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
-		cerr << "Expected '(' after \"if\" while parsing a conditional expression\n";
+		cerr << "Expected '(' after \"if\" while parsing a conditional statement\n";
 		return NULL;
 	} // end if no lparen
 	m_pLexer->GetNextToken();
@@ -554,13 +621,13 @@ ConditionalAST* Parser::parseConditionalExpression() {
 	// Parse the expression up to the right paren
 	ExprAST* pCondExpr= parseExpression( false, false, true );
 	if( !pCondExpr ) {
-		cerr << "Expected an expression between parentheses while parsing a conditional expression\n";
+		cerr << "Expected an expression between parentheses while parsing a conditional statement\n";
 		return NULL;
 	} // end if no expression
 
 	// Now find and eat the right paren
 	if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
-		cerr << "Expected ')' after condition while parsing a conditional expression\n";
+		cerr << "Expected ')' after condition while parsing a conditional statement\n";
 		delete pCondExpr;
 		return NULL;
 	} // end if no right paren
@@ -569,7 +636,7 @@ ConditionalAST* Parser::parseConditionalExpression() {
 	// Parse the block
 	BlockAST* pBlock= parseBlock();
 	if( !pBlock ) {
-		cerr << "Expected a block while parsing a conditional expression\n";
+		cerr << "Expected a block while parsing a conditional statement\n";
 		delete pCondExpr;
 		return NULL;
 	} // end if no block
@@ -584,27 +651,27 @@ ConditionalAST* Parser::parseConditionalExpression() {
 		if( m_pLexer->GetCurrentToken() == TOKEN_LBRACE ) {
 			pElseBlock= parseBlock();
 			if( !pElseBlock ) {
-				cerr << "Expected an else block while parsing a conditional expression\n";
+				cerr << "Expected an else block while parsing a conditional statement\n";
 				delete pCondExpr;
 				delete pBlock;
 				return NULL;
 			} // end if no else block
 		} else if( m_pLexer->GetCurrentToken() == TOKEN_IF ) {
 			// Parse the next "if" block
-			ConditionalAST* pNextConditional= parseConditionalExpression();
+			ConditionalAST* pNextConditional= parseConditionalStatement();
 			if( !pNextConditional ) {
-				cerr << "Expected an else if block while parsing a conditional expression\n";
+				cerr << "Expected an else if block while parsing a conditional statement\n";
 				delete pCondExpr;
 				delete pBlock;
 				return NULL;
 			} // end if no else block
 
 			// Build a block containing the next conditional
-			vector<PrimaryExprAST*> pExprs;
+			vector<StmtAST*> pExprs;
 			pExprs.push_back( pNextConditional );
 			pElseBlock= new BlockAST( pExprs );
 		} else {
-			cerr << "Expected '{' or \"if\" after \"else\" while parsing a conditional expression\n";
+			cerr << "Expected '{' or \"if\" after \"else\" while parsing a conditional statement\n";
 			delete pCondExpr;
 			delete pBlock;
 			return NULL;
@@ -612,17 +679,85 @@ ConditionalAST* Parser::parseConditionalExpression() {
 	}
 
 	return new ConditionalAST( pCondExpr, pBlock, pElseBlock );
-} // end Parser::parseConditionalExpression()
+} // end Parser::parseConditionalStatement()
 
 
-//! Enters a new scope
-void Parser::enterNewScope() {
-} // end Parser::enterNewScope()
+//! Adds a variable declaration to the current scope. Returns false
+//! if the variable already exists in scope
+bool Parser::addVariableToScope( DeclarationAST* pDeclaration ) {
+	// Lookup the declaration by name and fail if it exists
+	const string& strName= pDeclaration->GetName();
+	if( m_parseScope.variables.find(strName) != m_parseScope.variables.end() ) {
+		cerr << "Variable \"" << strName << "\" was already declared in scope\n";
+		return false;
+	} // end if variable exists in scope
+
+	// Insert the declaration
+	m_parseScope.variables[strName]= pDeclaration;
+	return true;
+} // end Parser::addVariableToScope()
 
 
-//! Exits the current scope
-void Parser::exitCurrentScope() {
-} // end Parser::exitCurrentScope()
+//! Adds a function prototype to the current scope. Returns false if the
+//! prototype already exists in scope, but with a different signature
+bool Parser::addPrototypeToScope( PrototypeAST* pPrototype ) {
+	//! Lookup the function by name and fail if it exists with a different signature
+	const string& strName= pPrototype->GetName();
+	map<string, PrototypeAST*>::iterator itProto= m_parseScope.prototypes.find(strName);
+	if( itProto != m_parseScope.prototypes.end() && *itProto->second != *pPrototype ) {
+		cerr << "Function prototype \"" << strName << "\" was already declared in scope with a different signature\n";
+		return false;
+	} // end if function exists in scope
+
+	// Insert the function
+	m_parseScope.prototypes[strName]= pPrototype;
+	return true;
+} // end Parser::addPrototypeToScope()
+
+
+//! Adds a function declaration to the current scope. Returns false
+//! if the function already exists in scope
+bool Parser::addFunctionToScope( FunctionAST* pFunction ) {
+	//! Lookup the function by name and fail if it exists
+	const string& strName= pFunction->GetName();
+	if(  m_parseScope.functions.find(strName) != m_parseScope.functions.end() ) {
+		cerr << "Function \"" << strName << "\" was already defined in scope\n";
+		return false;
+	} // end if function exists in scope
+
+	// Insert the function
+	m_parseScope.functions[strName]= pFunction;
+	return true;
+} // end Parser::addFunctionToScope()
+
+
+//! Looks for a variable declaration in scope. Returns NULL if it does not exist,
+//! but does not give any error messages
+DeclarationAST* Parser::findVariableInScope( const string& strName ) {
+	map<string, DeclarationAST*>::iterator itVar= m_parseScope.variables.find( strName );
+	if( itVar == m_parseScope.variables.end() ) return NULL;
+	else return itVar->second;
+} // end Parser::findVariableInScope()
+
+
+
+//! Looks up a function prototype in scope. Returns NULL if it does not exist,
+//! but does not give any error messages
+PrototypeAST* Parser::findPrototypeInScope( const string& strName ) {
+	map<string, PrototypeAST*>::iterator itProto= m_parseScope.prototypes.find( strName );
+	if( itProto == m_parseScope.prototypes.end() ) return NULL;
+	else return itProto->second;
+} // end Parser::findPrototypeInScope()
+
+
+//! Looks up a function declaration in scope. Returns NULL if it does not exists,
+//! but does not give any error messages
+FunctionAST* Parser::findFunctionInScope( const string& strName ) {
+	map<string, FunctionAST*>::iterator itFunc= m_parseScope.functions.find( strName );
+	if( itFunc == m_parseScope.functions.end() ) return NULL;
+	else return itFunc->second;
+} // end Parser::findFunctionInScope()
+
 
 //! Non-inline destructor
 Parser::~Parser() { }

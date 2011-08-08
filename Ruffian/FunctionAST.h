@@ -1,30 +1,51 @@
 #pragma once
 
-#include "ExprAST.h"
+class BlockAST;
+class DeclarationAST;
+class Scope;
+class TypeAST;
+class VariableAST;
 
-//! Function declaration
-class FunctionAST : public ExprAST {
+//! Function prototype
+class PrototypeAST {
 public:
-	//! Initialize with function name, return type, argument list
-	FunctionAST( const string& strName, TypeAST* pReturnType, const vector< pair<TypeAST*, VariableAST*> >& pArgs, ExprAST* pBody ) : m_strName(strName), m_pReturnType(pReturnType), m_pArgs(pArgs), m_pBody(pBody) {}
+	//! Initialize with function name, return type, and argument list
+	PrototypeAST( const string& strName, TypeAST* pReturnType, const vector<DeclarationAST*>& pArgs ) : m_strName(strName), m_pReturnType(pReturnType), m_pArgs(pArgs) {}
 
-	virtual Value* Codegen( Scope& scope );
+	//! Returns our name
+	const string& GetName() const { return m_strName; }
+	//! Returns our arguments
+	const vector<DeclarationAST*>& GetArgs() const { return m_pArgs; }
+	//! Returns our return type
+	const TypeAST& GetReturnType() const { ASSERT( m_pReturnType ); return *m_pReturnType; }
+
+	llvm::Function* Codegen( Scope& scope ) const;
+
+	//! Compares two function prototypes to see if they have the same signature
+	bool operator==( const PrototypeAST& rhs ) const;
+	//! Compares two function prototypes to see if they do not have the same signature
+	bool operator!=( const PrototypeAST& rhs ) const { return !(*this == rhs); }
 private:
 	string m_strName;
 	TypeAST* m_pReturnType;
-	vector< pair<TypeAST*, VariableAST*> > m_pArgs;
-	ExprAST* m_pBody;
-}; // end class FunctionAST
+	vector<DeclarationAST*> m_pArgs;
+}; // end class PrototypeAST
 
-
-//! Function call
-class CallAST : public ExprAST {
+//! Function declaration
+class FunctionAST {
 public:
-	//! Initialize with function name and argument list
-	CallAST( const string& strName, const vector<ExprAST*>& pArgs ) : m_strName(strName), m_pArgs(pArgs) {}
+	//! Initialize with prototype and body
+	FunctionAST( PrototypeAST* pPrototype, BlockAST* pBody ) : m_pPrototype(pPrototype), m_pBody(pBody) {}
 
-	virtual Value* Codegen( Scope& scope );
+	//! Returns our name
+	const string& GetName() const { return m_pPrototype->GetName(); }
+	//! Returns our arguments
+	const vector<DeclarationAST*>& GetArgs() const { return m_pPrototype->GetArgs(); }
+	//! Returns our return type
+	const TypeAST& GetReturnType() const { return m_pPrototype->GetReturnType(); }
+
+	llvm::Function* Codegen( Scope& scope ) const;
 private:
-	string m_strName;
-	vector<ExprAST*> m_pArgs;
-}; // end class CallAST
+	PrototypeAST* m_pPrototype;
+	BlockAST* m_pBody;
+}; // end class FunctionAST

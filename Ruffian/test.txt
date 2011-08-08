@@ -11,3 +11,7 @@ def factorial ( int n ) -> int {
 def opt_test(int x) -> int {
 	return (1+2+x) * (x+(1+2));
 }
+
+def stefs_function(int x) -> int {
+	return x*x*x;
+}

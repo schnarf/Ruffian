@@ -13,6 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\AST">
+      <UniqueIdentifier>{99bea916-e0ec-45f1-93c8-9a987781c40a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\AST">
+      <UniqueIdentifier>{4393f574-7d3f-4d7f-a04e-b83ab3b81854}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Sem">
+      <UniqueIdentifier>{ff83401f-db0b-4b98-a6cd-93d659a3cc2b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -33,6 +42,15 @@
     <ClCompile Include="Scope.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ExprAST.cpp">
+      <Filter>Source Files\AST</Filter>
+    </ClCompile>
+    <ClCompile Include="StmtAST.cpp">
+      <Filter>Source Files\AST</Filter>
+    </ClCompile>
+    <ClCompile Include="FunctionAST.cpp">
+      <Filter>Source Files\AST</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lexer.h">
@@ -44,14 +62,29 @@
     <ClInclude Include="common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ExprAST.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FunctionAST.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Scope.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ExprAST.h">
+      <Filter>Header Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="FunctionAST.h">
+      <Filter>Header Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="StmtAST.h">
+      <Filter>Header Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeAST.h">
+      <Filter>Header Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="AST.h">
+      <Filter>Header Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="SemScope.h">
+      <Filter>Header Files\Sem</Filter>
+    </ClInclude>
+    <ClInclude Include="SemBinop.h">
+      <Filter>Header Files\Sem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

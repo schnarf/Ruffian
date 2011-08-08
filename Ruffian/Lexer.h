@@ -32,6 +32,7 @@ enum Token {
 
 	TOKEN_LITERAL_INT,
 	TOKEN_LITERAL_FLOAT,
+	TOKEN_LITERAL_BOOL,
 
 	TOKEN_IDENTIFIER,
 
@@ -59,13 +60,15 @@ public:
 	int64 GetIntLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_INT ); return m_intLiteral; }
 	//! Gets the value of the current float literal token
 	double GetFloatLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_FLOAT ); return m_floatLiteral; }
+	//! Gets the value of the current bool literal token
+	bool GetBoolLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_BOOL ); return m_boolLiteral; }
 
 	// Returns the name of the given token
 	static string StringifyToken( Token token );
 	//! Returns whether the current token is a binary operator
 	static bool IsBinopToken( Token token );
 	//! Returns whether the current token is a literal
-	static bool IsLiteralToken( Token token ) { return token == TOKEN_LITERAL_INT || token == TOKEN_LITERAL_FLOAT; }
+	static bool IsLiteralToken( Token token ) { return token == TOKEN_LITERAL_INT || token == TOKEN_LITERAL_FLOAT || token == TOKEN_LITERAL_BOOL; }
 
 private:
 	shared_ptr<FILE> m_pFile;			//!< Our file to read from
@@ -76,6 +79,7 @@ private:
 	string m_strIdentifier;				//!< Identifier string, filled in for identifier tokens
 	int64 m_intLiteral;					//!< Integer literal, filled in for int literal tokens
 	double m_floatLiteral;				//!< Float literal, filled in for float literal tokens
+	bool m_boolLiteral;					//!< Bool literal, filled in for bool literal token
 
 	//! Gets the next token
 	Token getTok();

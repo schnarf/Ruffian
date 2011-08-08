@@ -49,6 +49,7 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_ELSE: return "else";
 	case TOKEN_LITERAL_INT: return "int literal";
 	case TOKEN_LITERAL_FLOAT: return "float literal";
+	case TOKEN_LITERAL_BOOL: return "bool literal";
 	case TOKEN_IDENTIFIER: return "identifier";
 	case TOKEN_EOF: return "eof";
 	case TOKEN_UNKNOWN: return "unknown";
@@ -96,6 +97,8 @@ Token Lexer::getTok() {
 		else if( m_strIdentifier == "return" ) return TOKEN_RETURN;
 		else if( m_strIdentifier == "if" ) return TOKEN_IF;
 		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;
+		else if( m_strIdentifier == "true" ) { m_boolLiteral= true; return TOKEN_LITERAL_BOOL; }
+		else if( m_strIdentifier == "false" ) { m_boolLiteral= false; return TOKEN_LITERAL_BOOL; }
 		else return TOKEN_IDENTIFIER;
 	} // end if starts with alphabetic character
 

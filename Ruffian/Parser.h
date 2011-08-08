@@ -3,7 +3,7 @@
 #include "Scope.h"
 
 class Lexer;
-class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST;
+class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST;
 namespace llvm { class ExecutionEngine; }
 
 class Parser {
@@ -27,13 +27,13 @@ private:
 	FunctionAST* parseFunctionDefinition();
 	//! Parses a block
 	BlockAST* parseBlock();
-	//! Parses a primary expression
-	PrimaryExprAST* parsePrimaryExpression();
+	//! Parses a statement
+	StmtAST* parseStatement();
 	//! Parses an expression
 	ExprAST* parseExpression( bool bSemicolon, bool bComma, bool bRparen );
-	//! Parses a return expression
-	ReturnAST* parseReturnExpression();
-	//! Parses a variable declaration
+	//! Parses a return statement
+	ReturnAST* parseReturnStatement();
+	//! Parses a variable declaration statement
 	DeclarationAST* parseVariableDeclaration();
 	//! Parses an assignment expression
 	AssignmentAST* parseAssignmentExpression();
@@ -45,22 +45,47 @@ private:
 	CallAST* parseCallExpression( const string& strName );
 	//! Parses a numeric literal
 	LiteralAST* parseLiteral();
-	//! Parses a conditional expression
-	ConditionalAST* parseConditionalExpression();
+	//! Parses a conditional statement
+	ConditionalAST* parseConditionalStatement();
 
-	//! Enters a new scope
-	void enterNewScope();
-	//! Exits the current scope
-	void exitCurrentScope();
+	//! Adds a variable declaration to the current scope. Returns false
+	//! if the variable already exists in scope
+	bool addVariableToScope( DeclarationAST* pDeclaration );
+	//! Adds a function prototype to the current scope. Returns false if the
+	//! prototype already exists in scope, but with a different signature
+	bool addPrototypeToScope( PrototypeAST* pPrototype );
+	//! Adds a function declaration to the current scope. Returns false
+	//! if the function already exists in scope
+	bool addFunctionToScope( FunctionAST* pFunction );
+
+	//! Looks for a variable declaration in scope. Returns NULL if it does not exist,
+	//! but does not give any error messages
+	DeclarationAST* findVariableInScope( const string& strName );
+	//! Looks up a function prototype in scope. Returns NULL if it does not exist,
+	//! but does not give any error messages
+	PrototypeAST* findPrototypeInScope( const string& strName );
+	//! Looks up a function declaration in scope. Returns NULL if it does not exists,
+	//! but does not give any error messages
+	FunctionAST* findFunctionInScope( const string& strName );
+
+	//! Holds the scope that the parser needs to know about
+	struct ParseScope {
+		map<string, DeclarationAST*> variables;		//!< Table of variable declarations
+		map<string, PrototypeAST*> prototypes;		//!< Table of function prototypes
+		map<string, FunctionAST*> functions;		//!< Table of function declarations
+	}; // end struct ParseScope
+
+	ParseScope m_parseScope;
 
 	//! Sentry for entering/exiting a new scope
 	class ScopeSentry {
 	public:
 		//! Initialize, entering a new scope
-		ScopeSentry( Parser* pParser ) : m_pParser(pParser) { m_pParser->enterNewScope(); }
+		ScopeSentry( Parser* pParser ) : m_pParser(pParser), m_oldScope(m_pParser->m_parseScope) {}
 		//! Exit the scope
-		~ScopeSentry() { m_pParser->exitCurrentScope(); }
+		~ScopeSentry() { m_pParser->m_parseScope= m_oldScope; }
 	private:
-		Parser* m_pParser;		//!< Our parser instance
+		Parser* m_pParser;			//!< Our parser instance
+		ParseScope m_oldScope;		//!< Our old scope
 	}; // end class ScopeSentry
 }; // end class Parser
