@@ -18,7 +18,6 @@ public:
 
 private:
 	shared_ptr<Lexer> m_pLexer;			//!< Our lexer
-	Scope m_scope;						//!< Our scope
 
 	//! Parses a function declaration or definition.
 	//! Returns either a prototype or full function
