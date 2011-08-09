@@ -16,7 +16,7 @@ void Parser::Run() {
 	while( 1 ) {
 		switch( m_pLexer->GetCurrentToken() ) {
 		case TOKEN_EOF: return;
-		case TOKEN_DEF: handleFunctionDefinition(); break;
+		case TOKEN_DEF: handleFunctionDeclarationOrDefinition(); break;
 		default:
 			cerr << "Unexpected token \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\".\n";
 			return;
@@ -25,11 +25,12 @@ void Parser::Run() {
 } // end Parser::Run()
 
 
-//! Handles a function definition
-void Parser::handleFunctionDefinition() {
-	if( FunctionAST* pFunction= parseFunctionDefinition() ) {
+//! Handles a function declaration or definition
+void Parser::handleFunctionDeclarationOrDefinition() {
+	pair<PrototypeAST*, FunctionAST*> functionRet= parseFunctionDeclarationOrDefinition();
+	if( FunctionAST* pFunction= functionRet.second ) {
 		cout << "Parsed a function definition\n";
-		llvm::Function* pFunctionCode= dynamic_cast<llvm::Function*>(pFunction->Codegen(m_scope));
+		llvm::Function* pFunctionCode= pFunction->Codegen( m_scope );
 		pFunctionCode->dump();
 
 		// JIT the function, returning a function pointer.
@@ -40,68 +41,78 @@ void Parser::handleFunctionDefinition() {
 			int64 (*func)(int64) = (int64 (*)(int64))(intptr_t)pFunctionPointer;
 			fprintf(stderr, "Evaluated to %i\n", int(func(4)));
 		} // end if proper function signature
+	} else if( PrototypeAST* pPrototype= functionRet.first ) {
+		cout << "Parsed a function prototype\n";
+		llvm::Function* pPrototypeCode= pPrototype->Codegen( m_scope );
+		pPrototypeCode->dump();
 	} else {
 		// Skip token for error recovery
 		m_pLexer->GetNextToken();
 	}
-} // end Parser::handleFunctionDefinition()
+} // end Parser::handleFunctionDeclarationOrDefinition()
 
-
-//! Parses a function definition
-FunctionAST* Parser::parseFunctionDefinition() {
+//! Parses a function declaration or definition.
+//! Returns either a prototype or full function
+pair<PrototypeAST*, FunctionAST*> Parser::parseFunctionDeclarationOrDefinition() {
 	/*
-		function_definition ::= 'def' identifier '(' argument_list ')' -> identifier '{' expression_list '}'
 		argument_list ::=
 			''
 			identifier identifier ',' argument_list
+		
+		function_declaration
+			::= 'def' identifier '(' argument_list ')' -> identifier ';'
+
+		function_definition
+			::= 'def' identifier '(' argument_list ')' -> identifier '{' expression_list '}'
+		
 	*/
+
+	typedef pair<PrototypeAST*, FunctionAST*> ret_pair_type;
+	const ret_pair_type null_ret( nullptr, nullptr );
 
 	// Check for "def"
 	if( m_pLexer->GetCurrentToken() != TOKEN_DEF ) {
-		cerr << "Expected \"def\" while parsing function definition\n";
-		return NULL;
+		cerr << "Expected \"def\" while parsing function prototype\n";
+		return null_ret;
 	} // end if error
 
 	// Parse the identifier for the function's name
 	if( m_pLexer->GetNextToken() != TOKEN_IDENTIFIER ) {
-		cerr << "Expected an identifier while parsing function definition\n";
-		return NULL;
+		cerr << "Expected an identifier while parsing function prototype\n";
+		return null_ret;
 	} // end if no identifier
 
 	string strName= m_pLexer->GetIdentifier();
 
 	// Parse the argument list
 	if( m_pLexer->GetNextToken() != TOKEN_LPAREN ) {
-		cerr << "Expected '(' while parsing function definition argument list\n";
-		return NULL;
+		cerr << "Expected '(' while parsing function prototype argument list\n";
+		return null_ret;
 	} // end if no left paren
 
 	// Eat the lparen
 	m_pLexer->GetNextToken();
 
-	// Enter a new scope
-	ScopeSentry s_scope( this );
-
 	vector<DeclarationAST*> pArgs;
 	while( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
 		// typename identifier ','
 		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-			cerr << "Expected an identifier (type) while parsing function definition argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
-			return NULL;
+			cerr << "Expected an identifier (type) while parsing function prototype argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
+			return null_ret;
 		}
 		TypeAST* pType= parseType();
 
 		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-			cerr << "Expected an identifier (variable) while parsing function definition argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
-			return NULL;
+			cerr << "Expected an identifier (variable) while parsing function prototype argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
+			return null_ret;
 		}
 
 		string strVariable= m_pLexer->GetIdentifier();
 		m_pLexer->GetNextToken();
 
-		// Create a declaration in scope for this argument
-		DeclarationAST* pDeclaration= new DeclarationAST( strVariable, pType );
-		if( !addVariableToScope(pDeclaration) ) return NULL;
+		// Create a declaration for this argument
+		// Don't add it to scope until later, if this is a full function definition
+		DeclarationAST* pDeclaration= new DeclarationAST( strVariable, pType );		
 
 		// Now we can have a comma or rparen
 		if( m_pLexer->GetCurrentToken() == TOKEN_COMMA ) {
@@ -109,7 +120,7 @@ FunctionAST* Parser::parseFunctionDefinition() {
 			m_pLexer->GetNextToken();
 		} else if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
 			cerr << "Expected ',' or ')' while parsing function definition argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
-			return NULL;
+			return null_ret;
 		}
 
 		pArgs.push_back( pDeclaration );
@@ -120,13 +131,13 @@ FunctionAST* Parser::parseFunctionDefinition() {
 	// Parse the '->' before the return type
 	if( m_pLexer->GetNextToken() != TOKEN_ARROW ) {
 		cerr << "Expected '->' while parsing function definition\n";
-		return NULL;
+		return null_ret;
 	} // end if no arrow
 	
 	// Parse the return type
 	if( m_pLexer->GetNextToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected a typename while parsing function return type\n";
-		return NULL;
+		return null_ret;
 	} // end if no identifier
 	
 	TypeAST* pReturnType= parseType();
@@ -136,25 +147,35 @@ FunctionAST* Parser::parseFunctionDefinition() {
 	if( !pPrototype ) pPrototype= new PrototypeAST( strName, pReturnType, pArgs );
 	bool bPrototypeDoesNotExist= addPrototypeToScope( pPrototype ); ASSERT( bPrototypeDoesNotExist );
 
-	 // Now look for the opening brace
+	// Now we expect either an opening brace for a function definition, or a semicolon for a function prototype
+	if( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON ) {
+		// Eat the semicolon and return the prototype
+		m_pLexer->GetNextToken();
+		return ret_pair_type( pPrototype, nullptr );
+	} // end if function prototype
+
+	// Now look for the opening brace
 	if( m_pLexer->GetCurrentToken() != TOKEN_LBRACE ) {
 		cerr << "Expected '{' while parsing function definition\n";
-		return NULL;
+		return null_ret;
 	} // end if no left brace
+
+	// If this is a full function definition, start a new scope, and add the variable declarations so the function body can reference them
+	ScopeSentry s_scope( this );
+	for( uint iArg=0; iArg<pArgs.size(); ++iArg ) if( !addVariableToScope(pArgs[iArg]) ) return null_ret;
 
 	// Parse the function's body
 	BlockAST* pBody= parseBlock();
 	if( !pBody ) {
 		cerr << "Could not parse function body\n";
-		return NULL;
+		return null_ret;
 	} // end if couldn't parse body
 
 	// Add the function to scope
 	FunctionAST* pFunction= new FunctionAST( pPrototype, pBody );
-	if( !addFunctionToScope(pFunction) ) { delete pFunction; delete pPrototype; return NULL; }
+	if( !addFunctionToScope(pFunction) ) { delete pFunction; delete pPrototype; return null_ret; }
 
-	return pFunction;
-
+	return ret_pair_type( nullptr, pFunction );
 } // end Parser::parseFunctionDefinition()
 
 

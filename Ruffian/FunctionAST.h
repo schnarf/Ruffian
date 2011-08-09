@@ -31,7 +31,7 @@ private:
 	vector<DeclarationAST*> m_pArgs;
 }; // end class PrototypeAST
 
-//! Function declaration
+//! Function definition, includes the body
 class FunctionAST {
 public:
 	//! Initialize with prototype and body

@@ -20,11 +20,12 @@ private:
 	shared_ptr<Lexer> m_pLexer;			//!< Our lexer
 	Scope m_scope;						//!< Our scope
 
-	//! Handles a function definition
-	void handleFunctionDefinition();
+	//! Handles a function declaration or definition
+	void handleFunctionDeclarationOrDefinition();
 
-	//! Parses a function definition
-	FunctionAST* parseFunctionDefinition();
+	//! Parses a function declaration or definition.
+	//! Returns either a prototype or full function
+	pair<PrototypeAST*, FunctionAST*> parseFunctionDeclarationOrDefinition();
 	//! Parses a block
 	BlockAST* parseBlock();
 	//! Parses a statement

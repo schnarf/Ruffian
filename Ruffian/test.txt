@@ -15,3 +15,13 @@ def opt_test(int x) -> int {
 def stefs_function(int x) -> int {
 	return x*x*x;
 }
+
+def prototype2(int x) -> int;
+
+def prototype1(int x) -> int {
+	return prototype2(x);
+}
+
+def prototype2(int x) -> int {
+	return 1 + x;
+}
