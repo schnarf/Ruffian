@@ -1,0 +1,22 @@
+Ruffian is a project I'm working on to create a language that does what I want it to do.
+I'm not claiming to know much about language design, so this is basically a toy project,
+at least for now. I work almost entirely in C++, and there are a lot of things I like
+about C++. A lot of people complain about the high level of complexity in C++. I know
+I agree that it's a very complex language, but I also know that it's a very powerful
+and expressive language, and I don't have sufficient information to figure out to what
+extent the power of C++ necessitates its complexity. This language is sort of a project
+to try to find out the answer to that.
+
+For example, just to begin with, C++ is notoriously hard to parse: just parsing it
+requires a high degree of semantic analysis. I am doing my best to design Ruffian
+to be simple to parse. I also plan to do my best to make decisions about the behavior
+of language features so that they might be as unsurprising as possible. Clearly I am
+not attempting to be backwards-compatible with C, so this gives me the freedom to
+work on a better module system than what exists with includes and libraries in C/C++.
+
+I am starting out with a very simple set of features, say, a Turing-complete language
+that has many but not all of the constructs from C. From there, I will do my best to
+ensure that everything is cleanly designed and fully specified, and I'll see where
+that leaves me. At that point, I'd like to pick some bodies of code to translate
+over and see how that works, and start writing a mock standard library to see what
+language features along the lines of C++ I might need to start implementing.
