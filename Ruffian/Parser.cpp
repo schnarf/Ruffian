@@ -11,20 +11,48 @@ Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
 } // end Parser::Parser()
 
 
-//! Runs the main parsing loop
-void Parser::Run() {
-	while( 1 ) {
+//! Runs the main parsing loop, returning the parsed module at the
+//! root of the AST on success, or NULL on failure.
+ModuleAST* Parser::Run() {
+	// Build a list of function prototypes and definitions encountered
+	vector<PrototypeAST*> pPrototypes;
+	vector<FunctionAST*> pFunctions;
+
+	// Parse until we hit the end of the file or an error is encountered
+	bool bEOF= false, bError= false;
+	while( !bEOF && !bError ) {
 		switch( m_pLexer->GetCurrentToken() ) {
-		case TOKEN_EOF: return;
-		case TOKEN_DEF: handleFunctionDeclarationOrDefinition(); break;
+		case TOKEN_EOF:
+			bEOF= true;
+			break;
+		case TOKEN_DEF: {
+			// Attempt to parse the declaration or definition; only one pointer will be non-NULL
+			pair<PrototypeAST*, FunctionAST*> functionRet= parseFunctionDeclarationOrDefinition();
+			// Add the prototype or definition to the appropriate list
+			if( functionRet.first ) pPrototypes.push_back( functionRet.first );
+			else if( functionRet.second ) pFunctions.push_back( functionRet.second );
+			else { 
+				cerr << "Encountered an error parsing a function declaration/definition\n";
+				bError= true;
+			} // end if error
+			break;
+		} // end case function declaration/definition
 		default:
 			cerr << "Unexpected token \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\".\n";
-			return;
+			bError= true;
+			break;
 		} // end switch current token
-	} // end while not EOF
+	} // end while not eof or error
+
+	// If we hit an error, just exit out here. We already printed an error message,
+	// and should not try to assemble any module.
+	if( bError ) return NULL;
+
+	// If we are here, create and return the module
+	return new ModuleAST( pPrototypes, pFunctions );
 } // end Parser::Run()
 
-
+#if 0
 //! Handles a function declaration or definition
 void Parser::handleFunctionDeclarationOrDefinition() {
 	pair<PrototypeAST*, FunctionAST*> functionRet= parseFunctionDeclarationOrDefinition();
@@ -50,6 +78,7 @@ void Parser::handleFunctionDeclarationOrDefinition() {
 		m_pLexer->GetNextToken();
 	}
 } // end Parser::handleFunctionDeclarationOrDefinition()
+#endif
 
 //! Parses a function declaration or definition.
 //! Returns either a prototype or full function

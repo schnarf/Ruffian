@@ -3,8 +3,7 @@
 #include "Scope.h"
 
 class Lexer;
-class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST;
-namespace llvm { class ExecutionEngine; }
+class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST;
 
 class Parser {
 public:
@@ -13,15 +12,13 @@ public:
 	//! Non-inline destructor
 	~Parser();
 
-	//! Runs the main parsing loop
-	void Run();
+	//! Runs the main parsing loop, returning the parsed module at the
+	//! root of the AST on success, or NULL on failure.
+	ModuleAST* Run();
 
 private:
 	shared_ptr<Lexer> m_pLexer;			//!< Our lexer
 	Scope m_scope;						//!< Our scope
-
-	//! Handles a function declaration or definition
-	void handleFunctionDeclarationOrDefinition();
 
 	//! Parses a function declaration or definition.
 	//! Returns either a prototype or full function

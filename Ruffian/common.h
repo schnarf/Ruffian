@@ -7,7 +7,7 @@ using std::cout; using std::cerr; using std::endl;
 using std::map;
 
 #include <memory>
-using std::shared_ptr;
+using std::shared_ptr; using std::unique_ptr;
 
 #include <string>
 using std::string;

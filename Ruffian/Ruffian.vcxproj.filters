@@ -86,12 +86,21 @@
     <ClInclude Include="SemBinop.h">
       <Filter>Header Files\Sem</Filter>
     </ClInclude>
+    <ClInclude Include="ModuleAST.h">
+      <Filter>Header Files\AST</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.txt">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="TestMultipleBinop.txt">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\README">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\TODO">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

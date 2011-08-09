@@ -24,9 +24,12 @@ int main( int argc, char* argv[] ) {
 	// Create a lexer to read this file
 	shared_ptr<Lexer> pLexer( new Lexer(pFile) );
 	
-	// Create a parser and run the main loop
-	shared_ptr<Parser> pParser( new Parser(pLexer) );
-	pParser->Run();
+	// Create a parser and run the main parsing loop
+	unique_ptr<Parser> pParser( new Parser(pLexer) );
+	ModuleAST* pModule= pParser->Run();
+	if( !pModule ) return 1;
+
+	cout << "Parsed the module successfully.\n";
 
 	return 0;
 }

@@ -1,0 +1,6 @@
+- Use proper smart pointers in the parser. There are lots of places where parse errors
+  can cause leaks. The AST should at least use unique_ptr or something too; it's being leaked.
+- Clean up error messages in lexer, parser, and codegen. Errors should also be emitted with
+  references to the line number and position where the error was encountered.
+- Consider changing the conditional statement definition. It may be simpler if it
+  can take any statement, not just blocks.

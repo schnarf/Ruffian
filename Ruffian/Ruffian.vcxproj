@@ -116,6 +116,7 @@
     <ClInclude Include="ExprAST.h" />
     <ClInclude Include="FunctionAST.h" />
     <ClInclude Include="Lexer.h" />
+    <ClInclude Include="ModuleAST.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Scope.h" />
     <ClInclude Include="SemBinop.h" />
@@ -124,6 +125,8 @@
     <ClInclude Include="TypeAST.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\README" />
+    <None Include="..\TODO" />
     <None Include="test.txt" />
     <None Include="TestMultipleBinop.txt" />
   </ItemGroup>
