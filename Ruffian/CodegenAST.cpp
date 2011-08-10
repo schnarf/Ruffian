@@ -22,13 +22,12 @@ namespace {
 
 Value* IntegerAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// TODO: rework int stuff
-	return ConstantInt::get( getGlobalContext(), APInt(64, uint64_t(m_iValue), true) );
-	//return ConstantFP::get( getGlobalContext(), APFloat(double(m_iValue)) );
+	return ConstantInt::get( getGlobalContext(), m_apValue );
 } // end IntegerAST::Codegen()
 
 
 Value* FloatAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	return ConstantFP::get( getGlobalContext(), APFloat(m_fValue) );
+	return ConstantFP::get( getGlobalContext(), m_apValue );
 } // end FloatAST::Codegen()
 
 

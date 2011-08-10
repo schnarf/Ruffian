@@ -289,10 +289,9 @@ shared_ptr<ExprAST> Parser::parseExpression( bool bSemicolon, bool bComma, bool 
 		if( lastToken == TOKEN_IDENTIFIER ) {
 			pLastExpr.reset( new VariableAST( findVariableInScope(m_pLexer->GetIdentifier())) );
 			strIdentifier= m_pLexer->GetIdentifier();
-		} else if( lastToken == TOKEN_LITERAL_INT ) {
-			pLastExpr.reset( new IntegerAST(m_pLexer->GetIntLiteral()) );
-		} else if( lastToken == TOKEN_LITERAL_FLOAT ) {
-			pLastExpr.reset( new FloatAST(m_pLexer->GetFloatLiteral()) );
+		} else if( Lexer::IsLiteralToken(lastToken) ) {
+			pLastExpr= makeLiteral( lastToken, m_pLexer->GetLiteral() );
+			ASSERT( pLastExpr );
 		}
 
 		if( pLastExpr ) m_pLexer->GetNextToken();
@@ -608,18 +607,14 @@ shared_ptr<LiteralAST> Parser::parseLiteral() {
 		::= float_literal
 		::= bool_literal
 	*/
-	shared_ptr<LiteralAST> pRet;
 
-	if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_INT ) {
-		pRet.reset( new IntegerAST(m_pLexer->GetIntLiteral()) );
-	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_FLOAT ) {
-		pRet.reset( new FloatAST(m_pLexer->GetFloatLiteral()) );
-	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_BOOL ) {
-		pRet.reset( new BoolAST(m_pLexer->GetBoolLiteral()) );
-	} else {
-		cerr << "Expected an integer or float literal\n";
+	if( !Lexer::IsLiteralToken(m_pLexer->GetCurrentToken()) ) {
+		cerr << "Expected a literal\n";
 		return NULL;
-	}
+	} // end if not a literal
+
+	// Make the AST node
+	shared_ptr<LiteralAST> pRet= makeLiteral( m_pLexer->GetCurrentToken(), m_pLexer->GetLiteral() );
 
 	// Now eat the token
 	m_pLexer->GetNextToken();
@@ -703,6 +698,29 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 
 	return shared_ptr<ConditionalAST>( new ConditionalAST(pCondExpr, pBlock, pElseBlock) );
 } // end Parser::parseConditionalStatement()
+
+
+//! Creates a numeric literal, given the type and its string representation
+shared_ptr<LiteralAST> Parser::makeLiteral( Token token, const string& strLiteral ) {
+	if( !Lexer::IsLiteralToken(token) ) {
+		ASSERT( false );
+		return NULL;
+	} // end if not literal token
+
+	LiteralAST* pRet= NULL;
+	switch( token ) {
+	case TOKEN_LITERAL_INT:
+		return shared_ptr<LiteralAST>( new IntegerAST(strLiteral) );
+	case TOKEN_LITERAL_FLOAT:
+		return shared_ptr<FloatAST>( new FloatAST(strLiteral) );
+	case TOKEN_LITERAL_BOOL:
+		return shared_ptr<BoolAST>( new BoolAST(strLiteral) );
+	default:
+		// Unhandled case, fix me!
+		ASSERT( false );
+		return NULL;
+	} // end switch token
+} // end Parser::makeLiteral()
 
 
 //! Adds a variable declaration to the current scope. Returns false

@@ -21,6 +21,15 @@ def decl_test(int n) -> int {
 	return ret;
 }
 
+def bool_test(int n) -> int {
+	var bool bValue= true;
+	bValue= n < 3;
+	if( bValue ) {
+		return n;
+	}
+	return 3;
+}
+
 //def myfunc(int a, int b) -> int {
 //	var int temp= a * 2;
 //	return temp + b;

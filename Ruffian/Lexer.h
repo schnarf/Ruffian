@@ -56,12 +56,8 @@ public:
 
 	//! Gets the name of the current identifier token
 	string GetIdentifier() const { ASSERT( GetCurrentToken() == TOKEN_IDENTIFIER ); return m_strIdentifier; }
-	//! Gets the value of the current integer literal token
-	int64 GetIntLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_INT ); return m_intLiteral; }
-	//! Gets the value of the current float literal token
-	double GetFloatLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_FLOAT ); return m_floatLiteral; }
-	//! Gets the value of the current bool literal token
-	bool GetBoolLiteral() const { ASSERT( GetCurrentToken() == TOKEN_LITERAL_BOOL ); return m_boolLiteral; }
+	//! Gets the string representation of the current literal token
+	string GetLiteral() const { ASSERT( IsLiteralToken(GetCurrentToken()) ); return m_strLiteral; }
 
 	// Returns the name of the given token
 	static string StringifyToken( Token token );
@@ -77,9 +73,7 @@ private:
 	Token m_currentToken;				//!< Our current token
 
 	string m_strIdentifier;				//!< Identifier string, filled in for identifier tokens
-	int64 m_intLiteral;					//!< Integer literal, filled in for int literal tokens
-	double m_floatLiteral;				//!< Float literal, filled in for float literal tokens
-	bool m_boolLiteral;					//!< Bool literal, filled in for bool literal token
+	string m_strLiteral;				//!< Literal string, filled in for literal tokens
 
 	//! Gets the next token
 	Token getTok();

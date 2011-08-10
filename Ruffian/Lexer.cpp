@@ -97,8 +97,7 @@ Token Lexer::getTok() {
 		else if( m_strIdentifier == "return" ) return TOKEN_RETURN;
 		else if( m_strIdentifier == "if" ) return TOKEN_IF;
 		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;
-		else if( m_strIdentifier == "true" ) { m_boolLiteral= true; return TOKEN_LITERAL_BOOL; }
-		else if( m_strIdentifier == "false" ) { m_boolLiteral= false; return TOKEN_LITERAL_BOOL; }
+		else if( m_strIdentifier == "true" || m_strIdentifier == "false" ) { m_strLiteral= m_strIdentifier; return TOKEN_LITERAL_BOOL; }
 		else return TOKEN_IDENTIFIER;
 	} // end if starts with alphabetic character
 
@@ -111,18 +110,17 @@ Token Lexer::getTok() {
 			readChar();
 		} // end while reading numeric literal
 
+		// Store the literal
+		m_strLiteral= strNum;
+
 		// Try to determine if it's an integer or floating-point literal, or if it's malformed
-		// TODO: 64-bit integer support
-		// TODO: Warn on loss of precision
 		uint nDecimalPoints= 0;
 		for( string::const_iterator itChar=strNum.begin(); itChar!=strNum.end(); ++itChar ) { if( *itChar == '.' ) ++nDecimalPoints; }
 		if( nDecimalPoints == 0 ) {
 			// Integer
-			m_intLiteral= atoi( strNum.c_str() );
 			return TOKEN_LITERAL_INT;
 		} else if( nDecimalPoints == 1 ) {
 			// Float
-			m_floatLiteral= strtod( strNum.c_str(), NULL );
 			return TOKEN_LITERAL_FLOAT;
 		} else {
 			cerr << "Could not parse numeric literal \"" << strNum << "\", expected fewer decimal points\n";

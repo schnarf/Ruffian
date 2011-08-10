@@ -62,32 +62,42 @@ private:
 //! Integer literal AST node
 class IntegerAST : public LiteralAST {
 public:
-	//! Initialize with value
-	IntegerAST( int64 iValue ) : m_iValue(iValue) {}
+	//! Initialize with string representation of value
+	IntegerAST( const string& strValue ) : m_apValue(64, strValue, 10) {}
+	//! Initialize with signed integer value
+	IntegerAST( int64 iValue ) : m_apValue(64, iValue, true) {}
 
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
-	int64 m_iValue;
+	llvm::APInt m_apValue;
 }; // end class IntegerAST
 
 
 //! Float literal AST node
 class FloatAST : public LiteralAST {
 public:
+	//! Initialize with string representation of value
+	FloatAST( const string& strValue ) : m_apValue(llvm::APFloat::IEEEdouble, strValue) {}
 	//! Initialize with value
-	FloatAST( double fValue ) : m_fValue(fValue) {}
+	FloatAST( double fValue ) : m_apValue(fValue) {}
 
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
-	double m_fValue;
+	llvm::APFloat m_apValue;
 }; // end class FloatAST
 
 
 //! Bool literal AST node
 class BoolAST : public LiteralAST {
 public:
+	//! Initialize with string representation of value
+	BoolAST( const string& strValue ) {
+		if( strValue == "true" ) m_bValue= true;
+		else if( strValue == "false" ) m_bValue= false;
+		else { ASSERT( false ); m_bValue= false;}
+	} // end BoolAST()
 	//! Initialize with value
 	BoolAST( bool bValue ) : m_bValue(bValue) {}
 

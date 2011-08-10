@@ -1,6 +1,7 @@
 #pragma once
 
 class Lexer;
+enum Token;
 class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST;
 
 class Parser {
@@ -42,6 +43,9 @@ private:
 	shared_ptr<LiteralAST> parseLiteral();
 	//! Parses a conditional statement
 	shared_ptr<ConditionalAST> parseConditionalStatement();
+
+	//! Creates a numeric literal, given the type and its string representation
+	static shared_ptr<LiteralAST> makeLiteral( Token token, const string& strLiteral );
 
 	//! Adds a variable declaration to the current scope. Returns false
 	//! if the variable already exists in scope
