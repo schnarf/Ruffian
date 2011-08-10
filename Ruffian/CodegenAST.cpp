@@ -2,6 +2,7 @@
 #include "AST.h"
 #include "CodegenContext.h"
 #include "CodegenScope.h"
+#include "SemBinop.h"
 
 using namespace llvm;
 
@@ -51,6 +52,12 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	Value* pRight= m_pRight->Codegen( context, scope );
 	if( !pLeft || !pRight ) return ErrorCodegen( "Could not generate lhs and rhs for binary expression" );
 
+	// If this is a comparison binop, check that the two operands do not have the same type
+	// TODO: Check this at semantic analysis time
+	if( IsComparisonBinop(m_binop) && m_pLeft->GetType() != m_pRight->GetType() ) {
+		return ErrorCodegen( "Lhs and rhs do not have the same type for comparison binary expression" );
+	} // end if error
+
 	// TODO: everything is being done floating-point. Should take into account types of operands
 	// and come up with simple rules for conversion
 	switch( m_binop ) {
@@ -61,26 +68,25 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	
 		// For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
 	case TOKEN_COMPARE:
-		//pLeft= context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
-		pLeft= context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" );
-		return pLeft;
-		//return context.GetBuilder().CreateUIToFP( pLeft, Type::getDoubleTy(getGlobalContext()), "booltmp" );
+		return m_pLeft->GetType().IsIntegral()
+			? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
+			: context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
 	case TOKEN_LT:
-		pLeft= context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
-		return pLeft;
-		//return context.GetBuilder().CreateUIToFP( pLeft, Type::getDoubleTy(getGlobalContext()), "booltmp" );
+		return m_pLeft->GetType().IsIntegral()
+			? context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
+			: context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
 	case TOKEN_GT:
-		pLeft= context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
-		return pLeft;
-		//return context.GetBuilder().CreateUIToFP( pLeft, Type::getDoubleTy(getGlobalContext()), "booltmp" );
+		return m_pLeft->GetType().IsIntegral()
+			? context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
+			: context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
 	case TOKEN_LE:
-		pLeft= context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
-		return pLeft;
-		//return context.GetBuilder().CreateUIToFP( pLeft, Type::getDoubleTy(getGlobalContext()), "booltmp" );
+		return m_pLeft->GetType().IsIntegral()
+			? context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
+			: context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
 	case TOKEN_GE:
-		pLeft= context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
-		return pLeft;
-		//return context.GetBuilder().CreateUIToFP( pLeft, Type::getDoubleTy(getGlobalContext()), "booltmp" );
+		return m_pLeft->GetType().IsIntegral()
+			? context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
+			: context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
 	default:
 		return ErrorCodegen( string("Unhandled binary operator '") + Lexer::StringifyToken(m_binop) + "' for binary expression" );
 	} // end switch binop

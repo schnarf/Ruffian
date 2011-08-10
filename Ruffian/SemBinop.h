@@ -34,3 +34,19 @@ inline const TypeAST& GetBinopType( Token binop, const TypeAST& l, const TypeAST
 		return TypeAST::GetError();
 	}
 } // end GetBinopType()
+
+//! Returns whether the given binary operation is a comparison
+inline bool IsComparisonBinop( Token binop ) {
+	ASSERT( Lexer::IsBinopToken(binop) );
+
+	switch( binop ) {
+	case TOKEN_LT:
+	case TOKEN_GT:
+	case TOKEN_LE:
+	case TOKEN_GE:
+	case TOKEN_COMPARE:
+		return true;
+	default:
+		return false;
+	} // end switch binop
+} // end IsComparisonBinop()
