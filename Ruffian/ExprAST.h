@@ -47,14 +47,14 @@ private:
 //! Binary operator AST Node
 class BinopAST : public ExprAST {
 public:
-	//! Initialize with operator, taking ownership of LHS and RHS
-	BinopAST( Token binop, ExprAST* pLeft, ExprAST* pRight ) : m_binop(binop), m_pLeft(pLeft), m_pRight(pRight) {}
+	//! Initialize with operator, LHS, and RHS
+	BinopAST( Token binop, const shared_ptr<ExprAST>& pLeft, const shared_ptr<ExprAST>& pRight ) : m_binop(binop), m_pLeft(pLeft), m_pRight(pRight) {}
 
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	Token m_binop;
-	unique_ptr<ExprAST> m_pLeft,
+	shared_ptr<ExprAST> m_pLeft,
 	                    m_pRight;
 }; // end class BinopAST
 
@@ -102,15 +102,11 @@ private:
 class CallAST : public ExprAST {
 public:
 	//! Initialize with function prototype and argument list
-	//! Takes ownership of the expressions in the argument list, but not of the prototype
-	CallAST( const shared_ptr<PrototypeAST>& pPrototype, const vector<ExprAST*>& pArgs ) : m_pPrototype(pPrototype), m_pArgs(pArgs.size()) {
-		// Take ownership of the argument expressions
-		for( uint iArg=0; iArg<m_pArgs.size(); ++iArg ) m_pArgs[iArg].reset( pArgs[iArg] );
-	} // end CallAST()
+	CallAST( const shared_ptr<PrototypeAST>& pPrototype, const vector<shared_ptr<ExprAST>>& pArgs ) : m_pPrototype(pPrototype), m_pArgs(pArgs) {}
 	
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	shared_ptr<PrototypeAST> m_pPrototype;				//!< Non-owning pointer
-	vector< unique_ptr<ExprAST> > m_pArgs;
+	vector<shared_ptr<ExprAST>> m_pArgs;
 }; // end class CallAST

@@ -19,7 +19,7 @@ using std::string;
 using std::vector;
 
 #include <utility>
-using std::pair; using std::make_pair; using std::move;
+using std::pair; using std::make_pair;
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"

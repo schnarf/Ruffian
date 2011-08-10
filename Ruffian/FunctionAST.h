@@ -13,8 +13,7 @@ class VariableAST;
 class PrototypeAST {
 public:
 	//! Initialize with function name, return type, and argument list
-	//! Takes ownership of the return type, but the declarations are shared
-	PrototypeAST( const string& strName, TypeAST* pReturnType, const vector<shared_ptr<DeclarationAST>>& pArgs ) : m_strName(strName), m_pReturnType(pReturnType), m_pArgs(pArgs) {}
+	PrototypeAST( const string& strName, const shared_ptr<TypeAST>& pReturnType, const vector<shared_ptr<DeclarationAST>>& pArgs ) : m_strName(strName), m_pReturnType(pReturnType), m_pArgs(pArgs) {}
 
 	//! Returns our name
 	const string& GetName() const { return m_strName; }
@@ -31,7 +30,7 @@ public:
 	bool operator!=( const PrototypeAST& rhs ) const { return !(*this == rhs); }
 private:
 	string m_strName;
-	unique_ptr<TypeAST> m_pReturnType;
+	shared_ptr<TypeAST> m_pReturnType;
 	vector<shared_ptr<DeclarationAST>> m_pArgs;
 }; // end class PrototypeAST
 
@@ -39,7 +38,7 @@ private:
 class FunctionAST {
 public:
 	//! Initialize with prototype and body
-	FunctionAST( const shared_ptr<PrototypeAST>& pPrototype, BlockAST* pBody ) : m_pPrototype(pPrototype), m_pBody(pBody) {}
+	FunctionAST( const shared_ptr<PrototypeAST>& pPrototype, const shared_ptr<BlockAST>& pBody ) : m_pPrototype(pPrototype), m_pBody(pBody) {}
 
 	//! Returns our name
 	const string& GetName() const { return m_pPrototype->GetName(); }
@@ -51,5 +50,5 @@ public:
 	llvm::Function* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	shared_ptr<PrototypeAST> m_pPrototype;
-	unique_ptr<BlockAST> m_pBody;
+	shared_ptr<BlockAST> m_pBody;
 }; // end class FunctionAST

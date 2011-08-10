@@ -19,29 +19,29 @@ private:
 
 	//! Parses a function declaration or definition.
 	//! Returns either a prototype or full function
-	pair<shared_ptr<PrototypeAST>, FunctionAST*> parseFunctionDeclarationOrDefinition();
+	pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> parseFunctionDeclarationOrDefinition();
 	//! Parses a block
-	BlockAST* parseBlock();
+	shared_ptr<BlockAST> parseBlock();
 	//! Parses a statement
-	StmtAST* parseStatement();
+	shared_ptr<StmtAST> parseStatement();
 	//! Parses an expression
-	ExprAST* parseExpression( bool bSemicolon, bool bComma, bool bRparen );
+	shared_ptr<ExprAST> parseExpression( bool bSemicolon, bool bComma, bool bRparen );
 	//! Parses a return statement
-	ReturnAST* parseReturnStatement();
+	shared_ptr<ReturnAST> parseReturnStatement();
 	//! Parses a variable declaration statement
-	DeclarationAST* parseVariableDeclaration();
+	shared_ptr<DeclarationAST> parseVariableDeclaration();
 	//! Parses an assignment expression
-	AssignmentAST* parseAssignmentExpression();
+	shared_ptr<AssignmentAST> parseAssignmentExpression();
 	//! Parses a variable identifier
-	VariableAST* parseVariable();
+	shared_ptr<VariableAST> parseVariable();
 	//! Parses a type identifier
-	TypeAST* parseType();
+	shared_ptr<TypeAST> parseType();
 	//! Parses a function call expression, having already parsed the function name
-	CallAST* parseCallExpression( const string& strName );
+	shared_ptr<CallAST> parseCallExpression( const string& strName );
 	//! Parses a numeric literal
-	LiteralAST* parseLiteral();
+	shared_ptr<LiteralAST> parseLiteral();
 	//! Parses a conditional statement
-	ConditionalAST* parseConditionalStatement();
+	shared_ptr<ConditionalAST> parseConditionalStatement();
 
 	//! Adds a variable declaration to the current scope. Returns false
 	//! if the variable already exists in scope

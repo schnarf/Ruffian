@@ -26,10 +26,10 @@ ModuleAST* Parser::Run() {
 			break;
 		case TOKEN_DEF: {
 			// Attempt to parse the declaration or definition; only one pointer will be non-NULL
-			pair<shared_ptr<PrototypeAST>, FunctionAST*> functionRet= parseFunctionDeclarationOrDefinition();
+			pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> functionRet= parseFunctionDeclarationOrDefinition();
 			// Add the prototype or definition to the appropriate list
 			if( functionRet.first ) pPrototypes.push_back( functionRet.first );
-			else if( functionRet.second ) pFunctions.push_back( shared_ptr<FunctionAST>(functionRet.second) );
+			else if( functionRet.second ) pFunctions.push_back( functionRet.second );
 			else { 
 				cerr << "Encountered an error parsing a function declaration/definition\n";
 				bError= true;
@@ -54,7 +54,7 @@ ModuleAST* Parser::Run() {
 
 //! Parses a function declaration or definition.
 //! Returns either a prototype or full function
-pair<shared_ptr<PrototypeAST>, FunctionAST*> Parser::parseFunctionDeclarationOrDefinition() {
+pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDeclarationOrDefinition() {
 	/*
 		argument_list ::=
 			''
@@ -68,7 +68,7 @@ pair<shared_ptr<PrototypeAST>, FunctionAST*> Parser::parseFunctionDeclarationOrD
 		
 	*/
 
-	typedef pair<shared_ptr<PrototypeAST>, FunctionAST*> ret_pair_type;
+	typedef pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> ret_pair_type;
 	const ret_pair_type null_ret( nullptr, nullptr );
 
 	// Check for "def"
@@ -101,7 +101,7 @@ pair<shared_ptr<PrototypeAST>, FunctionAST*> Parser::parseFunctionDeclarationOrD
 			cerr << "Expected an identifier (type) while parsing function prototype argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
 			return null_ret;
 		}
-		unique_ptr<TypeAST> pType( parseType() );
+		shared_ptr<TypeAST> pType( parseType() );
 
 		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 			cerr << "Expected an identifier (variable) while parsing function prototype argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
@@ -113,8 +113,7 @@ pair<shared_ptr<PrototypeAST>, FunctionAST*> Parser::parseFunctionDeclarationOrD
 
 		// Create a declaration for this argument
 		// Don't add it to scope until later, if this is a full function definition
-		// The declaration takes ownership of pType
-		shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strVariable, pType.release()) );
+		shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strVariable, pType) );
 
 		// Now we can have a comma or rparen
 		if( m_pLexer->GetCurrentToken() == TOKEN_COMMA ) {
@@ -142,11 +141,11 @@ pair<shared_ptr<PrototypeAST>, FunctionAST*> Parser::parseFunctionDeclarationOrD
 		return null_ret;
 	} // end if no identifier
 	
-	unique_ptr<TypeAST> pReturnType( parseType() );
+	shared_ptr<TypeAST> pReturnType( parseType() );
 
 	// Now lookup the prototype, and create it if it does not exist
 	shared_ptr<PrototypeAST> pPrototype= findPrototypeInScope( strName );
-	if( !pPrototype ) pPrototype.reset( new PrototypeAST(strName, pReturnType.release(), pArgs) );
+	if( !pPrototype ) pPrototype.reset( new PrototypeAST(strName, pReturnType, pArgs) );
 	bool bPrototypeDoesNotExist= addPrototypeToScope( pPrototype ); ASSERT( bPrototypeDoesNotExist );
 
 	// Now we expect either an opening brace for a function definition, or a semicolon for a function prototype
@@ -174,22 +173,22 @@ pair<shared_ptr<PrototypeAST>, FunctionAST*> Parser::parseFunctionDeclarationOrD
 	for( uint iArg=0; iArg<pArgs.size(); ++iArg ) if( !addVariableToScope(pArgs[iArg]) ) return null_ret;
 
 	// Parse the function's body
-	unique_ptr<BlockAST> pBody( parseBlock() );
+	shared_ptr<BlockAST> pBody( parseBlock() );
 	if( !pBody ) {
 		cerr << "Could not parse function body\n";
 		return null_ret;
 	} // end if couldn't parse body
 
 	// Add the function to scope
-	unique_ptr<FunctionAST> pFunction( new FunctionAST(pPrototype, pBody.release()) );
+	shared_ptr<FunctionAST> pFunction( new FunctionAST(pPrototype, pBody) );
 	setFunctionDefinedInScope( strName );
 
-	return ret_pair_type( nullptr, pFunction.release() );
+	return ret_pair_type( nullptr, pFunction );
 } // end Parser::parseFunctionDeclarationOrDefinition()
 
 
 //! Parses a block
-BlockAST* Parser::parseBlock() {
+shared_ptr<BlockAST> Parser::parseBlock() {
 	/* block
 		::= '{' statements* '}'
 	*/
@@ -198,31 +197,28 @@ BlockAST* Parser::parseBlock() {
 	ScopeSentry s_scope( this );
 
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_LBRACE );
-	vector<unique_ptr<StmtAST>> pExprs;
+	vector<shared_ptr<StmtAST>> pExprs;
 	m_pLexer->GetNextToken();
 	while( m_pLexer->GetCurrentToken() != TOKEN_RBRACE ) {
-		unique_ptr<StmtAST> pExpr( parseStatement() );
+		shared_ptr<StmtAST> pExpr( parseStatement() );
 		if( !pExpr ) {
 			cerr << "Could not parse statement while parsing a block\n";
 			return NULL;
 		} // end if parse error
 
-		pExprs.push_back( move(pExpr) );
+		pExprs.push_back( pExpr );
 	} // end while looking for a right brace
 
 	// Eat the right brace
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RBRACE );
 	m_pLexer->GetNextToken();
 
-	// Give the BlockAST constructor ownership of the expressions
-	vector<StmtAST*> pOwnedExprs( pExprs.size() );
-	for( uint i=0; i<pExprs.size(); ++i ) pOwnedExprs[i]= pExprs[i].release();
-	return new BlockAST( pOwnedExprs );
+	return shared_ptr<BlockAST>( new BlockAST(pExprs) );
 } // end Parser::parseBlock()
 
 
 //! Parses a statement
-StmtAST* Parser::parseStatement() {
+shared_ptr<StmtAST> Parser::parseStatement() {
 	/* statement
 		::= variable_declaration
 		::= return_stmt
@@ -245,7 +241,7 @@ StmtAST* Parser::parseStatement() {
 
 
 //! Parses an expression
-ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
+shared_ptr<ExprAST> Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 	/* expression_list
 		::= ''
 		::= expression ',' expression_list
@@ -281,14 +277,14 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 
 	// Now parse until we hit a terminator
 	// We store the expression we are building
-	unique_ptr<ExprAST> pExpr;
+	shared_ptr<ExprAST> pExpr;
 	while( !(bSemicolon && m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON)
 		&& !(bComma && m_pLexer->GetCurrentToken() == TOKEN_COMMA)
 		&& !(bRparen && m_pLexer->GetCurrentToken() == TOKEN_RPAREN) ) {
 
 		// Make an AST node for the potential identifier or literal, then eat the identifier/literal
 		Token lastToken= m_pLexer->GetCurrentToken();
-		unique_ptr<ExprAST> pLastExpr;
+		shared_ptr<ExprAST> pLastExpr;
 		string strIdentifier;
 		if( lastToken == TOKEN_IDENTIFIER ) {
 			pLastExpr.reset( new VariableAST( findVariableInScope(m_pLexer->GetIdentifier())) );
@@ -316,7 +312,7 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 		} // end if semicolon
 		else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN && lastToken == TOKEN_IDENTIFIER ) {
 			ASSERT( !pExpr );
-			pExpr.reset( parseCallExpression(strIdentifier) );
+			pExpr= parseCallExpression( strIdentifier );
 			if( !pExpr ) {
 				cerr << "Could not parse call expression while parsing expression\n";
 				return NULL;
@@ -327,7 +323,7 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			// Eat the lparen
 			m_pLexer->GetNextToken();
 			// Parse the expression up until the rparen
-			pExpr.reset( parseExpression(false, false, true) );
+			pExpr= parseExpression( false, false, true );
 			if( !pExpr ) {
 				cerr << "Could not parse paren expression while parsing expression\n";
 				return NULL;
@@ -341,7 +337,7 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			// This is a binary operator. The expression we've parsed so far is going to be the LHS.
 			// The rest will be the RHS
 			if( pExpr == NULL ) {
-				pExpr.swap( pLastExpr );
+				pExpr= pLastExpr;
 			} // end if no LHS
 			else {
 				pLastExpr.reset();
@@ -352,14 +348,14 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 			m_pLexer->GetNextToken();
 
 			// Parse the RHS
-			unique_ptr<ExprAST> pRight( parseExpression(bSemicolon, bComma, bRparen) );
+			shared_ptr<ExprAST> pRight( parseExpression(bSemicolon, bComma, bRparen) );
 			if( !pRight ) {
 				cerr << "Expected a RHS to the binary operator \"" << Lexer::StringifyToken(binop) << "\" while parsing an expression\n";
 				return NULL;
 			} // end if no RHS
 
 			// Now create the binop, giving it ownership of the expressions
-			pExpr.reset( new BinopAST(binop, pExpr.release(), pRight.release()) );
+			pExpr.reset( new BinopAST(binop, pExpr, pRight) );
 		} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
 			// Paren expression
 			ASSERT( !pExpr );
@@ -375,12 +371,12 @@ ExprAST* Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
 		return NULL;
 	}
 
-	return pExpr.release();
+	return pExpr;
 } // end Parser:parseExpression()
 
 
 //! Parses a return statment
-ReturnAST* Parser::parseReturnStatement() {
+shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 	/* return_stmt
 		::= 'return' expression ';'
 	*/
@@ -394,19 +390,19 @@ ReturnAST* Parser::parseReturnStatement() {
 	m_pLexer->GetNextToken();
 
 	// Parse the expression
-	unique_ptr<ExprAST> pExpr( parseExpression(true, false, false) );
-	if( pExpr == NULL ) return NULL;
+	shared_ptr<ExprAST> pExpr( parseExpression(true, false, false) );
+	if( !pExpr ) return NULL;
 
 	// Now eat the semicolon
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
 
-	return new ReturnAST( pExpr.release() );
+	return shared_ptr<ReturnAST>( new ReturnAST(pExpr) );
 } // end Parser::parseReturnStatement()
 
 
 //! Parses a variable declaration
-DeclarationAST* Parser::parseVariableDeclaration() {
+shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	/* variable_declaration
 		::= 'var' identifier identifier ';'
 		::= 'var' identifier identifier '=' expression ';'
@@ -437,13 +433,13 @@ DeclarationAST* Parser::parseVariableDeclaration() {
 	// Advance to the next token. We expect either a semicolon, in which case
 	// we are done, or an equals sign, in which case we will parse another expression
 	m_pLexer->GetNextToken();
-	unique_ptr<ExprAST> pInitializer;
+	shared_ptr<ExprAST> pInitializer;
 	if( m_pLexer->GetCurrentToken() == TOKEN_ASSIGN ) {
 		// Eat the '='
 		m_pLexer->GetNextToken();
 
 		// Parse the right-hand side
-		pInitializer.reset( parseExpression(true, false, false) );
+		pInitializer= parseExpression( true, false, false );
 		if( !pInitializer ) return NULL;
 	} else if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
 		cerr << "Expected ';' or '=' while parsing a variable declaration\n";
@@ -454,16 +450,14 @@ DeclarationAST* Parser::parseVariableDeclaration() {
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
 	// Add the variable to the current scope and then return the declaration
-	DeclarationAST* pDeclaration= new DeclarationAST( strName, new TypeAST(strType), pInitializer.release() );
-	// TODO: this might be dangerous! We're returning the raw pointer, need to see if it gets
-	// used and deleted anywhere. I think it might, i.e. by a block.
-	addVariableToScope( shared_ptr<DeclarationAST>(pDeclaration) );
+	shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strName, shared_ptr<TypeAST>(new TypeAST(strType)), pInitializer) );
+	addVariableToScope( pDeclaration );
 	return pDeclaration;
 } // end Parser::parseVariableDeclaration()
 
 
 //! Parses an assignment expression
-AssignmentAST* Parser::parseAssignmentExpression() {
+shared_ptr<AssignmentAST> Parser::parseAssignmentExpression() {
 	// TODO: allow expressions to be lvalues, like array[2]
 
 	/* assignment_stmt
@@ -483,7 +477,7 @@ AssignmentAST* Parser::parseAssignmentExpression() {
 
 	// Eat the equals, then try to parse an expression
 	m_pLexer->GetNextToken();
-	unique_ptr<ExprAST> pExpr( parseExpression(true, false, false) );
+	shared_ptr<ExprAST> pExpr( parseExpression(true, false, false) );
 
 	if( !pExpr ) {
 		cerr << "Expected an expression while parsing an assignment expression\n";
@@ -501,12 +495,12 @@ AssignmentAST* Parser::parseAssignmentExpression() {
 		return NULL;
 	} // end if not declared
 
-	return new AssignmentAST( new VariableAST(pDeclaration), pExpr.release() );
+	return shared_ptr<AssignmentAST>( new AssignmentAST(shared_ptr<VariableAST>(new VariableAST(pDeclaration)), pExpr) );
 } // end Parser::parseAssignmentExpression()
 
 
 //! Parses a variable identifier
-VariableAST* Parser::parseVariable() {
+shared_ptr<VariableAST> Parser::parseVariable() {
 	/* variable ::= identifier */
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected an identifier while parsing a variable\n";
@@ -523,12 +517,12 @@ VariableAST* Parser::parseVariable() {
 		return NULL;
 	} // end if not declared
 
-	return new VariableAST( pDeclaration );
+	return shared_ptr<VariableAST>( new VariableAST(pDeclaration) );
 } // end Parser::parseVariable()
 
 
 //! Parses a type identifier
-TypeAST* Parser::parseType() {
+shared_ptr<TypeAST> Parser::parseType() {
 	/* type ::= identifier */
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected an identifier while parsing a type\n";
@@ -537,12 +531,12 @@ TypeAST* Parser::parseType() {
 
 	string strName= m_pLexer->GetIdentifier();
 	m_pLexer->GetNextToken();
-	return new TypeAST( strName );
+	return shared_ptr<TypeAST>( new TypeAST(strName) );
 } // end Parser::parseType()
 
 
 //! Parses a function call expression, having already parsed the function name
-CallAST* Parser::parseCallExpression( const string& strName ) {
+shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 	/* expression_list
 		::= ''
 		::= expression ',' expression_list
@@ -567,15 +561,15 @@ CallAST* Parser::parseCallExpression( const string& strName ) {
 	m_pLexer->GetNextToken();
 
 	// Now parse all the arguments
-	vector< unique_ptr<ExprAST> > pArgs;
+	vector< shared_ptr<ExprAST> > pArgs;
 	while( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
-		unique_ptr<ExprAST> pExpr( parseExpression(false, true, true) );
+		shared_ptr<ExprAST> pExpr( parseExpression(false, true, true) );
 		if( !pExpr ) {
 			cerr << "Could not parse expression in function call argument list\n";
 			return NULL;
 		} // end if parse error
 
-		pArgs.push_back( move(pExpr) );
+		pArgs.push_back( pExpr );
 
 		// We expect a right paren or a comma; eat the comma if there's one
 		if( m_pLexer->GetCurrentToken() == TOKEN_COMMA ) {
@@ -603,28 +597,25 @@ CallAST* Parser::parseCallExpression( const string& strName ) {
 		} // end if wrong type
 	} // end for argument
 	
-	// Give the CallAST constructor ownership of the argument expressions
-	vector<ExprAST*> pOwnedArgs( pArgs.size() );
-	for( uint i=0; i<pArgs.size(); ++i ) pOwnedArgs[i]= pArgs[i].release();
-	return new CallAST( pPrototype, pOwnedArgs );
+	return shared_ptr<CallAST>( new CallAST(pPrototype, pArgs) );
 } // end parseCallExpression()
 
 
 //! Parses a numeric literal
-LiteralAST* Parser::parseLiteral() {
+shared_ptr<LiteralAST> Parser::parseLiteral() {
 	/* literal
 		::= int_literal
 		::= float_literal
 		::= bool_literal
 	*/
-	LiteralAST* pRet= NULL;
+	shared_ptr<LiteralAST> pRet;
 
 	if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_INT ) {
-		pRet= new IntegerAST( m_pLexer->GetIntLiteral() );
+		pRet.reset( new IntegerAST(m_pLexer->GetIntLiteral()) );
 	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_FLOAT ) {
-		pRet= new FloatAST( m_pLexer->GetFloatLiteral() );
+		pRet.reset( new FloatAST(m_pLexer->GetFloatLiteral()) );
 	} else if( m_pLexer->GetCurrentToken() == TOKEN_LITERAL_BOOL ) {
-		pRet= new BoolAST( m_pLexer->GetBoolLiteral() );
+		pRet.reset( new BoolAST(m_pLexer->GetBoolLiteral()) );
 	} else {
 		cerr << "Expected an integer or float literal\n";
 		return NULL;
@@ -638,7 +629,7 @@ LiteralAST* Parser::parseLiteral() {
 
 
 //! Parses a conditional statements
-ConditionalAST* Parser::parseConditionalStatement() {
+shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 	/* conditional_stmt
 		::= if '(' expression ')' block
 		::= conditional_stmt else conditional_stmt
@@ -659,7 +650,7 @@ ConditionalAST* Parser::parseConditionalStatement() {
 	m_pLexer->GetNextToken();
 
 	// Parse the expression up to the right paren
-	unique_ptr<ExprAST> pCondExpr( parseExpression(false, false, true) );
+	shared_ptr<ExprAST> pCondExpr( parseExpression(false, false, true) );
 	if( !pCondExpr ) {
 		cerr << "Expected an expression between parentheses while parsing a conditional statement\n";
 		return NULL;
@@ -673,36 +664,36 @@ ConditionalAST* Parser::parseConditionalStatement() {
 	m_pLexer->GetNextToken();
 
 	// Parse the block
-	unique_ptr<BlockAST> pBlock( parseBlock() );
+	shared_ptr<BlockAST> pBlock( parseBlock() );
 	if( !pBlock ) {
 		cerr << "Expected a block while parsing a conditional statement\n";
 		return NULL;
 	} // end if no block
 
 	// Check for "else". If we find an else, keep parsing recursively
-	unique_ptr<BlockAST> pElseBlock;
+	shared_ptr<BlockAST> pElseBlock;
 	if( m_pLexer->GetCurrentToken() == TOKEN_ELSE ) {
 		// Eat the else
 		m_pLexer->GetNextToken();
 
 		// Now we either expect a left brace or "if"
 		if( m_pLexer->GetCurrentToken() == TOKEN_LBRACE ) {
-			pElseBlock.reset( parseBlock() );
+			pElseBlock= parseBlock();
 			if( !pElseBlock ) {
 				cerr << "Expected an else block while parsing a conditional statement\n";
 				return NULL;
 			} // end if no else block
 		} else if( m_pLexer->GetCurrentToken() == TOKEN_IF ) {
 			// Parse the next "if" block
-			unique_ptr<ConditionalAST> pNextConditional( parseConditionalStatement() );
+			shared_ptr<ConditionalAST> pNextConditional( parseConditionalStatement() );
 			if( !pNextConditional ) {
 				cerr << "Expected an else if block while parsing a conditional statement\n";
 				return NULL;
 			} // end if no else block
 
 			// Build a block containing the next conditional
-			vector<StmtAST*> pExprs;
-			pExprs.push_back( pNextConditional.release() );
+			vector<shared_ptr<StmtAST>> pExprs;
+			pExprs.push_back( pNextConditional );
 			pElseBlock.reset( new BlockAST(pExprs) );
 		} else {
 			cerr << "Expected '{' or \"if\" after \"else\" while parsing a conditional statement\n";
@@ -710,7 +701,7 @@ ConditionalAST* Parser::parseConditionalStatement() {
 		}
 	}
 
-	return new ConditionalAST( pCondExpr.release(), pBlock.release(), pElseBlock.release() );
+	return shared_ptr<ConditionalAST>( new ConditionalAST(pCondExpr, pBlock, pElseBlock) );
 } // end Parser::parseConditionalStatement()
 
 
