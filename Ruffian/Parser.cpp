@@ -453,7 +453,12 @@ DeclarationAST* Parser::parseVariableDeclaration() {
 	// Now eat the current token, which we expect to be a semicolon, then create the declaration AST
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
-	return new DeclarationAST( strName, new TypeAST(strType), pInitializer.release() );
+	// Add the variable to the current scope and then return the declaration
+	DeclarationAST* pDeclaration= new DeclarationAST( strName, new TypeAST(strType), pInitializer.release() );
+	// TODO: this might be dangerous! We're returning the raw pointer, need to see if it gets
+	// used and deleted anywhere. I think it might, i.e. by a block.
+	addVariableToScope( shared_ptr<DeclarationAST>(pDeclaration) );
+	return pDeclaration;
 } // end Parser::parseVariableDeclaration()
 
 
@@ -714,6 +719,7 @@ ConditionalAST* Parser::parseConditionalStatement() {
 bool Parser::addVariableToScope( const shared_ptr<DeclarationAST>& pDeclaration ) {
 	// Lookup the declaration by name and fail if it exists
 	const string& strName= pDeclaration->GetName();
+	cout << "Variable " << strName << " added to scope\n";
 	if( m_parseScope.variables.find(strName) != m_parseScope.variables.end() ) {
 		cerr << "Variable \"" << strName << "\" was already declared in scope\n";
 		return false;

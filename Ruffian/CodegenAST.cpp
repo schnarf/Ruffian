@@ -201,7 +201,7 @@ void DeclarationAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	}
 
 	AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetName(), m_pType->Codegen(context, scope) );
-	if( pInitVal ) context.GetBuilder().CreateStore( pInitVal, pAlloca );
+	if( m_pInitializer ) context.GetBuilder().CreateStore( pInitVal, pAlloca );
 
 	// Register the binding
 	bool bSuccess= scope.RegisterVariable( GetName(), pAlloca );

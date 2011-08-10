@@ -8,6 +8,19 @@ def fibonacci( int n ) -> int {
 	return fibonacci(n-1) + fibonacci(n-2);
 }
 
+def decl_test(int n) -> int {
+	var int ret;
+	if( n < 3 ) {
+		var int x= factorial(n);
+		ret= x;
+	} else {
+		var int x= fibonacci(n);
+		ret= x;
+	}
+
+	return ret;
+}
+
 //def myfunc(int a, int b) -> int {
 //	var int temp= a * 2;
 //	return temp + b;
