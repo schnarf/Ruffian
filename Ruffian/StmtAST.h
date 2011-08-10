@@ -1,6 +1,7 @@
 #pragma once
 
-class ExprAST; class Scope; class VariableAST; class TypeAST;
+class CodegenContext; class CodegenScope;
+class ExprAST; class VariableAST; class TypeAST;
 
 //! Statement AST node base class. Statements may have an effect,
 //! but do not return any value.
@@ -8,7 +9,7 @@ class StmtAST {
 public:
 	virtual ~StmtAST() {}
 
-	virtual void Codegen( Scope& scope ) const= 0;
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const= 0;
 }; // end class StmtAST
 
 
@@ -17,7 +18,7 @@ public:
 	//! Initialize with return expression
 	ReturnAST( ExprAST* pExpr ) : m_pExpr(pExpr) {}
 
-	virtual void Codegen( Scope& scope ) const;
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	ExprAST* m_pExpr;
 }; // end class ReturnAST
@@ -35,7 +36,7 @@ public:
 	//! Returns our type
 	const TypeAST& GetType() const { ASSERT( m_pType ); return *m_pType; }
 
-	virtual void Codegen( Scope& scope ) const;
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	string m_strName;
 	TypeAST* m_pType;
@@ -48,7 +49,7 @@ public:
 	//! Initialize with lhs and rhs
 	AssignmentAST( VariableAST* pLeft, ExprAST* pRight ) : m_pLeft(pLeft), m_pRight(pRight) {}
 
-	virtual void Codegen( Scope& scope ) const;
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	VariableAST* m_pLeft;
 	ExprAST* m_pRight;
@@ -63,7 +64,7 @@ public:
 	//! Returns true if any of the statements in this block are a return statement
 	bool HasReturn() const;
 
-	virtual void Codegen( Scope& scope ) const;
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	vector<StmtAST*> m_pStmts;
 }; // end class BlockAST
@@ -76,7 +77,7 @@ public:
 	ConditionalAST( ExprAST* pCondExpr, BlockAST* pIfStmt, BlockAST* pElseStmt ) :
 		m_pCondExpr(pCondExpr), m_pIfStmt(pIfStmt), m_pElseStmt(pElseStmt) { ASSERT( m_pIfStmt != NULL ); }
 
-	virtual void Codegen( Scope& scope ) const;
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	ExprAST* m_pCondExpr;
 	BlockAST* m_pIfStmt;

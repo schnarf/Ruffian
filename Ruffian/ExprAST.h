@@ -2,10 +2,11 @@
 
 #include "Lexer.h"
 
+class CodegenContext;
+class CodegenScope;
 class DeclarationAST;
 class FunctionAST;
 class PrototypeAST;
-class Scope;
 class TypeAST;
 
 //! AST node abstract base for expressions.
@@ -17,7 +18,7 @@ public:
 	//! Returns the type of this expression
 	virtual const TypeAST& GetType() const= 0;
 	//! Generates code to evaluate the value of this expression
-	virtual Value* Codegen( Scope& scope ) const= 0;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const= 0;
 }; // end class ExprAST
 
 
@@ -38,7 +39,7 @@ public:
 	const DeclarationAST* GetDeclaration() { ASSERT( m_pDeclaration ); return m_pDeclaration; }
 	
 	virtual const TypeAST& GetType() const;
-	virtual Value* Codegen( Scope& scope ) const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	DeclarationAST* m_pDeclaration;			//!< Points to the declaration statement that initialized us, must be set
 }; // end VariableAST
@@ -51,7 +52,7 @@ public:
 	BinopAST( Token binop, ExprAST* pLeft, ExprAST* pRight ) : m_binop(binop), m_pLeft(pLeft), m_pRight(pRight) {}
 
 	virtual const TypeAST& GetType() const;
-	virtual Value* Codegen( Scope& scope ) const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	Token m_binop;
 	ExprAST* m_pLeft,
@@ -66,7 +67,7 @@ public:
 	IntegerAST( int64 iValue ) : m_iValue(iValue) {}
 
 	virtual const TypeAST& GetType() const;
-	virtual Value* Codegen( Scope& scope ) const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	int64 m_iValue;
 }; // end class IntegerAST
@@ -79,7 +80,7 @@ public:
 	FloatAST( double fValue ) : m_fValue(fValue) {}
 
 	virtual const TypeAST& GetType() const;
-	virtual Value* Codegen( Scope& scope ) const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	double m_fValue;
 }; // end class FloatAST
@@ -92,7 +93,7 @@ public:
 	BoolAST( bool bValue ) : m_bValue(bValue) {}
 
 	virtual const TypeAST& GetType() const;
-	virtual Value* Codegen( Scope& scope ) const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	bool m_bValue;
 }; // end class BoolAST
@@ -105,7 +106,7 @@ public:
 	CallAST( PrototypeAST* pPrototype, const vector<ExprAST*>& pArgs ) : m_pPrototype(pPrototype), m_pArgs(pArgs) {}
 	
 	virtual const TypeAST& GetType() const;
-	virtual Value* Codegen( Scope& scope ) const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	PrototypeAST* m_pPrototype;
 	vector<ExprAST*> m_pArgs;

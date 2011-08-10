@@ -1,8 +1,9 @@
 #pragma once
 
+class CodegenContext; class CodegenScope;
+
 class BlockAST;
 class DeclarationAST;
-class Scope;
 class TypeAST;
 class VariableAST;
 
@@ -19,7 +20,7 @@ public:
 	//! Returns our return type
 	const TypeAST& GetReturnType() const { ASSERT( m_pReturnType ); return *m_pReturnType; }
 
-	llvm::Function* Codegen( Scope& scope ) const;
+	llvm::Function* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 
 	//! Compares two function prototypes to see if they have the same signature
 	bool operator==( const PrototypeAST& rhs ) const;
@@ -44,7 +45,7 @@ public:
 	//! Returns our return type
 	const TypeAST& GetReturnType() const { return m_pPrototype->GetReturnType(); }
 
-	llvm::Function* Codegen( Scope& scope ) const;
+	llvm::Function* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	PrototypeAST* m_pPrototype;
 	BlockAST* m_pBody;

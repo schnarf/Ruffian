@@ -22,6 +22,12 @@
     <Filter Include="Header Files\Sem">
       <UniqueIdentifier>{ff83401f-db0b-4b98-a6cd-93d659a3cc2b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Codegen">
+      <UniqueIdentifier>{4dc0f642-3bd8-419d-8654-1bf81172434c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Codegen">
+      <UniqueIdentifier>{35ced023-b7d4-4d23-8f9e-641e12208967}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -36,12 +42,6 @@
     <ClCompile Include="common.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CodegenAST.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Scope.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ExprAST.cpp">
       <Filter>Source Files\AST</Filter>
     </ClCompile>
@@ -50,6 +50,18 @@
     </ClCompile>
     <ClCompile Include="FunctionAST.cpp">
       <Filter>Source Files\AST</Filter>
+    </ClCompile>
+    <ClCompile Include="CodegenScope.cpp">
+      <Filter>Source Files\Codegen</Filter>
+    </ClCompile>
+    <ClCompile Include="CodegenContext.cpp">
+      <Filter>Source Files\Codegen</Filter>
+    </ClCompile>
+    <ClCompile Include="Codegen.cpp">
+      <Filter>Source Files\Codegen</Filter>
+    </ClCompile>
+    <ClCompile Include="CodegenAST.cpp">
+      <Filter>Source Files\Codegen</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -60,9 +72,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Scope.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ExprAST.h">
@@ -88,6 +97,15 @@
     </ClInclude>
     <ClInclude Include="ModuleAST.h">
       <Filter>Header Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="Codegen.h">
+      <Filter>Header Files\Codegen</Filter>
+    </ClInclude>
+    <ClInclude Include="CodegenScope.h">
+      <Filter>Header Files\Codegen</Filter>
+    </ClInclude>
+    <ClInclude Include="CodegenContext.h">
+      <Filter>Header Files\Codegen</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

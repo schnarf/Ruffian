@@ -1,17 +1,17 @@
 #include "common.h"
-#include "Scope.h"
+#include "CodegenContext.h"
 
 using namespace llvm;
 
 namespace {
-	string strError;
-}
+	//! Error string passed to the EngineBuilder
+	string strError; 
+} // end file-scope
 
-//! Initialize our empty scope
-Scope::Scope() :
-	m_scopes(1),
-	m_pModule(new llvm::Module("module", llvm::getGlobalContext())),
-	m_builder(llvm::getGlobalContext()),
+//! Initialize
+CodegenContext::CodegenContext() :
+	m_pModule(new llvm::Module("module", getGlobalContext())),
+	m_builder(getGlobalContext()),
 	m_pExecutionEngine(EngineBuilder(m_pModule).setErrorStr(&strError).create()),
 	m_fpm(m_pModule) {
 
@@ -34,4 +34,7 @@ Scope::Scope() :
 	m_fpm.add(createCFGSimplificationPass());
 
 	m_fpm.doInitialization();
-} // end Scope::Scope()
+} // end CodegenContext::CodegenContext()
+
+//! Non-inline destructor
+CodegenContext::~CodegenContext() { }

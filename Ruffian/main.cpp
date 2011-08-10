@@ -1,4 +1,5 @@
 #include "common.h"
+#include "Codegen.h"
 #include "Lexer.h"
 #include "Parser.h"
 #include <cstdio>
@@ -30,6 +31,13 @@ int main( int argc, char* argv[] ) {
 	if( !pModule ) return 1;
 
 	cout << "Parsed the module successfully.\n";
+
+	// Create a codegen and generate code for the module
+	unique_ptr<Codegen> pCodegen( new Codegen );
+	bool bCodegenSuccess= pCodegen->Run( pModule );
+	if( !bCodegenSuccess ) return 1;
+
+	cout << "Ran codegen successfully.\n";
 
 	return 0;
 }

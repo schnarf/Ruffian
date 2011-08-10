@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Scope.h"
-
 class Lexer;
 class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST;
 

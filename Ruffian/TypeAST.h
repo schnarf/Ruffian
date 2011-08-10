@@ -10,7 +10,7 @@ public:
 	//! Returns our type name
 	const string& GetName() const { return m_strType; }
 
-	virtual const llvm::Type* Codegen( Scope& scope ) const;
+	virtual const llvm::Type* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 
 	//! Returns the static instance of the "int" type
 	static const TypeAST& GetInt() { static TypeAST typeInt("int"); return typeInt; }

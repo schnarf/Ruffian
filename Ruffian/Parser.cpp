@@ -2,7 +2,6 @@
 #include "Parser.h"
 #include "AST.h"
 #include "Lexer.h"
-#include "Scope.h"
 
 //! Initialize with parser
 Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
@@ -52,33 +51,6 @@ ModuleAST* Parser::Run() {
 	return new ModuleAST( pPrototypes, pFunctions );
 } // end Parser::Run()
 
-#if 0
-//! Handles a function declaration or definition
-void Parser::handleFunctionDeclarationOrDefinition() {
-	pair<PrototypeAST*, FunctionAST*> functionRet= parseFunctionDeclarationOrDefinition();
-	if( FunctionAST* pFunction= functionRet.second ) {
-		cout << "Parsed a function definition\n";
-		llvm::Function* pFunctionCode= pFunction->Codegen( m_scope );
-		pFunctionCode->dump();
-
-		// JIT the function, returning a function pointer.
-		void* pFunctionPointer = m_scope.GetExecutionEngine()->getPointerToFunction( pFunctionCode );
-      
-		// Cast it to the right type so we can call it as a native function.
-		if( pFunction->GetArgs().size() == 1 && pFunction->GetArgs()[0]->GetType() == TypeAST::GetInt() && pFunction->GetReturnType() == TypeAST::GetInt() ) {
-			int64 (*func)(int64) = (int64 (*)(int64))(intptr_t)pFunctionPointer;
-			fprintf(stderr, "Evaluated to %i\n", int(func(4)));
-		} // end if proper function signature
-	} else if( PrototypeAST* pPrototype= functionRet.first ) {
-		cout << "Parsed a function prototype\n";
-		llvm::Function* pPrototypeCode= pPrototype->Codegen( m_scope );
-		pPrototypeCode->dump();
-	} else {
-		// Skip token for error recovery
-		m_pLexer->GetNextToken();
-	}
-} // end Parser::handleFunctionDeclarationOrDefinition()
-#endif
 
 //! Parses a function declaration or definition.
 //! Returns either a prototype or full function

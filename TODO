@@ -4,3 +4,5 @@
   references to the line number and position where the error was encountered.
 - Consider changing the conditional statement definition. It may be simpler if it
   can take any statement, not just blocks.
+- Resolve the issue with function definitions inside of functions. Either disallow them,
+  or mangle the name so that there's no problem at codegen time.
