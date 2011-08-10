@@ -215,7 +215,7 @@ void BlockAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		m_pStmts[iStmt]->Codegen( context, scope );
 
 		// Check for a return
-		if( dynamic_cast<ReturnAST*>(m_pStmts[iStmt]) ) {
+		if( dynamic_cast<ReturnAST*>(m_pStmts[iStmt].get()) ) {
 			if( iStmt+1<m_pStmts.size() ) { ErrorCodegen( string("Return expression in a block was not the last expression") ); return; }
 		} // end if return
 	} // end for expression

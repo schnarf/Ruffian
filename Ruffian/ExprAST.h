@@ -5,7 +5,6 @@
 class CodegenContext;
 class CodegenScope;
 class DeclarationAST;
-class FunctionAST;
 class PrototypeAST;
 class TypeAST;
 
@@ -31,32 +30,32 @@ class LiteralAST : public ExprAST {
 class VariableAST : public ExprAST {
 public:
 	//! Initialize with declaration
-	VariableAST( DeclarationAST* pDeclaration ) : m_pDeclaration(pDeclaration) {}
+	VariableAST( const shared_ptr<DeclarationAST>& pDeclaration ) : m_pDeclaration(pDeclaration) {}
 
 	//! Returns our variable name
 	const string& GetName() const;
 	//! Returns our declaration statement AST node
-	const DeclarationAST* GetDeclaration() { ASSERT( m_pDeclaration ); return m_pDeclaration; }
+	shared_ptr<const DeclarationAST> GetDeclaration() { ASSERT( m_pDeclaration ); return m_pDeclaration; }
 	
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
-	DeclarationAST* m_pDeclaration;			//!< Points to the declaration statement that initialized us, must be set
+	shared_ptr<DeclarationAST> m_pDeclaration;			//!< Points to the declaration statement that initialized us, must be set.
 }; // end VariableAST
 
 
 //! Binary operator AST Node
 class BinopAST : public ExprAST {
 public:
-	//! Initialize with operator, LHS, and RHS
+	//! Initialize with operator, taking ownership of LHS and RHS
 	BinopAST( Token binop, ExprAST* pLeft, ExprAST* pRight ) : m_binop(binop), m_pLeft(pLeft), m_pRight(pRight) {}
 
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	Token m_binop;
-	ExprAST* m_pLeft,
-	       * m_pRight;
+	unique_ptr<ExprAST> m_pLeft,
+	                    m_pRight;
 }; // end class BinopAST
 
 
@@ -103,11 +102,15 @@ private:
 class CallAST : public ExprAST {
 public:
 	//! Initialize with function prototype and argument list
-	CallAST( PrototypeAST* pPrototype, const vector<ExprAST*>& pArgs ) : m_pPrototype(pPrototype), m_pArgs(pArgs) {}
+	//! Takes ownership of the expressions in the argument list, but not of the prototype
+	CallAST( const shared_ptr<PrototypeAST>& pPrototype, const vector<ExprAST*>& pArgs ) : m_pPrototype(pPrototype), m_pArgs(pArgs.size()) {
+		// Take ownership of the argument expressions
+		for( uint iArg=0; iArg<m_pArgs.size(); ++iArg ) m_pArgs[iArg].reset( pArgs[iArg] );
+	} // end CallAST()
 	
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
-	PrototypeAST* m_pPrototype;
-	vector<ExprAST*> m_pArgs;
+	shared_ptr<PrototypeAST> m_pPrototype;				//!< Non-owning pointer
+	vector< unique_ptr<ExprAST> > m_pArgs;
 }; // end class CallAST

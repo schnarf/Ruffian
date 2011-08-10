@@ -19,7 +19,7 @@ private:
 
 	//! Parses a function declaration or definition.
 	//! Returns either a prototype or full function
-	pair<PrototypeAST*, FunctionAST*> parseFunctionDeclarationOrDefinition();
+	pair<shared_ptr<PrototypeAST>, FunctionAST*> parseFunctionDeclarationOrDefinition();
 	//! Parses a block
 	BlockAST* parseBlock();
 	//! Parses a statement
@@ -45,29 +45,29 @@ private:
 
 	//! Adds a variable declaration to the current scope. Returns false
 	//! if the variable already exists in scope
-	bool addVariableToScope( DeclarationAST* pDeclaration );
+	bool addVariableToScope( const shared_ptr<DeclarationAST>& pDeclaration );
 	//! Adds a function prototype to the current scope. Returns false if the
 	//! prototype already exists in scope, but with a different signature
-	bool addPrototypeToScope( PrototypeAST* pPrototype );
-	//! Adds a function declaration to the current scope. Returns false
-	//! if the function already exists in scope
-	bool addFunctionToScope( FunctionAST* pFunction );
+	bool addPrototypeToScope( const shared_ptr<PrototypeAST>& pPrototype );
+	//! Sets that the function has been defined in scope. This should only
+	//! ever be called once per function.
+	void setFunctionDefinedInScope( const string& strName );
 
 	//! Looks for a variable declaration in scope. Returns NULL if it does not exist,
 	//! but does not give any error messages
-	DeclarationAST* findVariableInScope( const string& strName );
+	shared_ptr<DeclarationAST> findVariableInScope( const string& strName );
 	//! Looks up a function prototype in scope. Returns NULL if it does not exist,
 	//! but does not give any error messages
-	PrototypeAST* findPrototypeInScope( const string& strName );
-	//! Looks up a function declaration in scope. Returns NULL if it does not exists,
-	//! but does not give any error messages
-	FunctionAST* findFunctionInScope( const string& strName );
+	shared_ptr<PrototypeAST> findPrototypeInScope( const string& strName );
+	//! Returns whether the specified function is defined in scope. If this is called
+	//! for a function that hasn't even been prototyped, also returns FALSE.
+	bool isFunctionDefinedInScope( const string& strName );
 
 	//! Holds the scope that the parser needs to know about
 	struct ParseScope {
-		map<string, DeclarationAST*> variables;		//!< Table of variable declarations
-		map<string, PrototypeAST*> prototypes;		//!< Table of function prototypes
-		map<string, FunctionAST*> functions;		//!< Table of function declarations
+		map<string, shared_ptr<DeclarationAST>> variables;	//!< Table of variable declarations
+		map<string, shared_ptr<PrototypeAST>> prototypes;	//!< Table of function prototypes
+		set<string> definedFunctions;						//!< Set of defined functions
 	}; // end struct ParseScope
 
 	ParseScope m_parseScope;

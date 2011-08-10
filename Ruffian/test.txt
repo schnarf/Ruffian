@@ -25,3 +25,5 @@ def prototype1(int x) -> int {
 def prototype2(int x) -> int {
 	return 1 + x;
 }
+
+def prototype2(int x) -> int;
