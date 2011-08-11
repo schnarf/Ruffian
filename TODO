@@ -10,4 +10,8 @@
   or mangle the name so that there's no problem at codegen time
 - Work out and implement some implicit/explicit type conversions.
 - For loop
-- Allow function calls as statements. Maybe even expressions that have no effect should be fine?
+- Think statements through. Should "expression ';'" be a valid statement? This will complicate the
+  parser. Function calls are now allowed as statements, so is there any need?
+- Consider not requiring "var". Since we already have type information, it won't complicate the parser much.
+- Add "void" return type
+- Make Lexer::GetNextToken() return void, to prevent bugs

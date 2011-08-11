@@ -44,8 +44,8 @@ private:
 	shared_ptr<ReturnAST> parseReturnStatement();
 	//! Parses a variable declaration statement
 	shared_ptr<DeclarationAST> parseVariableDeclaration();
-	//! Parses an assignment expression
-	shared_ptr<AssignmentAST> parseAssignmentExpression();
+	//! Parses an assignment expression, having already parsed the target's name
+	shared_ptr<AssignmentAST> parseAssignmentExpression( const string& strTarget );
 	//! Parses a variable identifier
 	shared_ptr<VariableAST> parseVariable();
 	//! Parses a type identifier

@@ -86,3 +86,15 @@ private:
 	shared_ptr<BlockAST> m_pIfStmt;
 	shared_ptr<BlockAST> m_pElseStmt;		// not null
 }; // end class ConditionalAST
+
+
+//! Call statement AST node (same as expression, discarding return value)
+class CallStmtAST : public StmtAST {
+public:
+	//! Initialize with call expression
+	CallStmtAST( const shared_ptr<CallAST>& pCall ) : m_pCall(pCall) {}
+
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const { return (void)m_pCall->Codegen( context, scope ); }
+private:
+	shared_ptr<CallAST> m_pCall;
+}; // end CallStmtAST

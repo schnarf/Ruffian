@@ -352,6 +352,7 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 		::= variable_declaration
 		::= return_stmt
 		::= assignment_stmt
+		::= call_expr
 		::= block
 		::= conditional_stmt
 	*/
@@ -359,11 +360,32 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 	switch( m_pLexer->GetCurrentToken() ) {
 	case TOKEN_VAR: return parseVariableDeclaration();
 	case TOKEN_RETURN: return parseReturnStatement();
-	case TOKEN_IDENTIFIER: return parseAssignmentExpression();
+	case TOKEN_IDENTIFIER: {
+		// This is either an assignment statement or call expression
+		const string strIdentifier= m_pLexer->GetIdentifier();
+		m_pLexer->GetNextToken();
+		// We expect either an equals sign or lparen
+		if( m_pLexer->GetCurrentToken() == TOKEN_ASSIGN ) {
+			return parseAssignmentExpression( strIdentifier );
+		} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
+			shared_ptr<StmtAST> pRet( new CallStmtAST(parseCallExpression(strIdentifier)) );
+			// Eat the semicolon, which we expect
+			if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
+				cerr << "Expected ';' after call statement while parsing statement\n";
+				return NULL;
+			} // end if unexpected token
+			m_pLexer->GetNextToken();
+
+			return pRet;
+		} else {
+			cerr << "Expected '=' or '(' after identifier while parsing statement\n";
+			return NULL;
+		}
+	}
 	case TOKEN_LBRACE: return parseBlock();
 	case TOKEN_IF: return parseConditionalStatement();
 	default:
-		cerr << "Expected a primary expression\n";
+		cerr << "Expected a statement, found \"" + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) + "\"\n";
 		return NULL;
 	} // end switch current token
 } // end Parser::parseStatement()
@@ -469,21 +491,15 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 } // end Parser::parseVariableDeclaration()
 
 
-//! Parses an assignment expression
-shared_ptr<AssignmentAST> Parser::parseAssignmentExpression() {
+//! Parses an assignment expression, having already parsed the target's name
+shared_ptr<AssignmentAST> Parser::parseAssignmentExpression( const string& strTarget ) {
 	// TODO: allow expressions to be lvalues, like array[2]
 
 	/* assignment_stmt
 		::= identifier '=' expression ';'
 	*/
-	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-		cerr << "Expected an identifier while parsing an assignment expression\n";
-		return NULL;
-	} // end if no identifier
 
-	string strTarget= m_pLexer->GetIdentifier();
-
-	if( m_pLexer->GetNextToken() != TOKEN_ASSIGN ) {
+	if( m_pLexer->GetCurrentToken() != TOKEN_ASSIGN ) {
 		cerr << "Expected '=' while parsing an assignment expression\n";
 		return NULL;
 	} // end if no '='
