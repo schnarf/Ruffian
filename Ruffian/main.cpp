@@ -5,6 +5,12 @@
 #include "Parser.h"
 #include <cstdio>
 #include <cstdlib>
+#include "llvm/Support/DynamicLibrary.h"
+
+static int64 printInt( int64 i ) {
+	cout << i << endl;
+	return i;
+} // end printInt()
 
 int main( int argc, char* argv[] ) {
 
@@ -35,6 +41,16 @@ int main( int argc, char* argv[] ) {
 
 	// Create a codegen and generate code for the module
 	unique_ptr<Codegen> pCodegen( new Codegen );
+	
+	// Add our environment's functions
+	{
+		vector<const llvm::Type*> pArgTypes;
+		pArgTypes.push_back( llvm::Type::getInt64Ty(llvm::getGlobalContext()) );
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getInt64Ty(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printInt", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "printInt", (void*)printInt );
+	}
+
 	bool bCodegenSuccess= pCodegen->Run( pModule );
 	if( !bCodegenSuccess ) return 1;
 

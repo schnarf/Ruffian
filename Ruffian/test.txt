@@ -60,6 +60,9 @@ def operator_precedence(int x, int y) -> int {
 	return b;
 }
 
+def printInt(int n) -> int;
+
 def main(int n) -> int {
+	var int garbage= printInt(42);
 	return fibonacci(n);
 }

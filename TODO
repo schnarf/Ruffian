@@ -9,3 +9,5 @@
 - Resolve the issue with function definitions inside of functions. Either disallow them,
   or mangle the name so that there's no problem at codegen time
 - Work out and implement some implicit/explicit type conversions.
+- For loop
+- Allow function calls as statements. Maybe even expressions that have no effect should be fine?
