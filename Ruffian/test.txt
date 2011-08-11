@@ -9,12 +9,12 @@ def fibonacci( int n ) -> int {
 }
 
 def decl_test(int n) -> int {
-	var int ret;
+	int ret;
 	if( n < 3 ) {
-		var int x= factorial(n);
+		int x= factorial(n);
 		ret= x;
 	} else {
-		var int x= fibonacci(n);
+		int x= fibonacci(n);
 		ret= x;
 	}
 
@@ -22,18 +22,13 @@ def decl_test(int n) -> int {
 }
 
 def bool_test(int n) -> int {
-	var bool bValue= true;
+	bool bValue= true;
 	bValue= n < 3;
 	if( bValue ) {
 		return n;
 	}
 	return 3;
 }
-
-//def myfunc(int a, int b) -> int {
-//	var int temp= a * 2;
-//	return temp + b;
-//}
 
 def opt_test(int x) -> int {
 	return (1+2+x) * (x+(1+2));
@@ -56,7 +51,7 @@ def prototype2(int x) -> int {
 def prototype2(int x) -> int;
 
 def operator_precedence(int x, int y) -> int {
-	var int b= y / x + 3 * (y - x);
+	int b= y / x + 3 * (y - x);
 	return b;
 }
 

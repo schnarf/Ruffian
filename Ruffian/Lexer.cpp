@@ -43,7 +43,6 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_LE: return "<=";
 	case TOKEN_GE: return ">=";
 	case TOKEN_DEF: return "def";
-	case TOKEN_VAR: return "var";
 	case TOKEN_RETURN: return "return";
 	case TOKEN_IF: return "if";
 	case TOKEN_ELSE: return "else";
@@ -93,7 +92,6 @@ Token Lexer::getTok() {
 
 		// Check for a keyword
 		if( m_strIdentifier == "def" ) return TOKEN_DEF;
-		else if( m_strIdentifier == "var" ) return TOKEN_VAR;
 		else if( m_strIdentifier == "return" ) return TOKEN_RETURN;
 		else if( m_strIdentifier == "if" ) return TOKEN_IF;
 		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;

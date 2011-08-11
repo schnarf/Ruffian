@@ -25,7 +25,6 @@ enum Token {
 	TOKEN_GE,
 	
 	TOKEN_DEF,
-	TOKEN_VAR,
 	TOKEN_RETURN,
 	TOKEN_IF,
 	TOKEN_ELSE,

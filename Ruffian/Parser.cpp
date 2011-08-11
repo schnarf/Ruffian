@@ -364,15 +364,16 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 	*/
 
 	switch( m_pLexer->GetCurrentToken() ) {
-	case TOKEN_VAR: return parseVariableDeclaration();
 	case TOKEN_RETURN: return parseReturnStatement();
 	case TOKEN_IDENTIFIER: {
-		// This is either an assignment statement or call expression
+		// This is either an assignment statement, variable declaration statement, or call expression
 		const string strIdentifier= m_pLexer->GetIdentifier();
 		m_pLexer->GetNextToken();
 		// We expect either an equals sign or lparen
 		if( m_pLexer->GetCurrentToken() == TOKEN_ASSIGN ) {
 			return parseAssignmentExpression( strIdentifier );
+		} else if( m_pLexer->GetCurrentToken() == TOKEN_IDENTIFIER ) {
+			return parseVariableDeclaration( strIdentifier );
 		} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
 			shared_ptr<StmtAST> pRet( new CallStmtAST(parseCallExpression(strIdentifier)) );
 			// Eat the semicolon, which we expect
@@ -442,29 +443,15 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 } // end Parser::parseReturnStatement()
 
 
-//! Parses a variable declaration
-shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
+//! Parses a variable declaration, with the type already parsed
+shared_ptr<DeclarationAST> Parser::parseVariableDeclaration( const string& strType ) {
 	/* variable_declaration
-		::= 'var' identifier identifier ';'
-		::= 'var' identifier identifier '=' expression ';'
+		::= identifier identifier ';'
+		::= identifier identifier '=' expression ';'
 	*/
 
-	// Check for "var"
-	if( m_pLexer->GetCurrentToken() != TOKEN_VAR ) {
-		cerr << "Expected \"var\"\n";
-		return NULL;
-	} // end if no "var"
-
-	// Parse the typename identifier
-	if( m_pLexer->GetNextToken() != TOKEN_IDENTIFIER ) {
-		cerr << "Expected an identifier while parsing a variable declaration typename\n";
-		return NULL;
-	} // end if no typename
-
-	string strType= m_pLexer->GetIdentifier();
-
 	// Now parse the identifier
-	if( m_pLexer->GetNextToken() != TOKEN_IDENTIFIER ) {
+	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected an identifier while parsing a variable declaration\n";
 		return NULL;
 	} // end if no identifier

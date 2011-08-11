@@ -42,8 +42,8 @@ private:
 	shared_ptr<ExprAST> parseExpression();
 	//! Parses a return statement
 	shared_ptr<ReturnAST> parseReturnStatement();
-	//! Parses a variable declaration statement
-	shared_ptr<DeclarationAST> parseVariableDeclaration();
+	//! Parses a variable declaration statement, with the type already parsed
+	shared_ptr<DeclarationAST> parseVariableDeclaration( const string& strTarget );
 	//! Parses an assignment expression, having already parsed the target's name
 	shared_ptr<AssignmentAST> parseAssignmentExpression( const string& strTarget );
 	//! Parses a variable identifier
