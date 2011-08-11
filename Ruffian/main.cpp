@@ -1,5 +1,6 @@
 #include "common.h"
 #include "Codegen.h"
+#include "CodegenContext.h"
 #include "Lexer.h"
 #include "Parser.h"
 #include <cstdio>
@@ -38,6 +39,29 @@ int main( int argc, char* argv[] ) {
 	if( !bCodegenSuccess ) return 1;
 
 	cout << "Ran codegen successfully.\n";
+
+	// Look up the main() function
+	llvm::Function* pMainFunction= pCodegen->GetContext()->GetModule()->getFunction( "main" );
+	if( !pMainFunction ) {
+		cerr << "Could not resolve main()\n";
+		return 1;
+	} // end if no main function
+	if( pMainFunction->getReturnType() != llvm::Type::getInt64Ty(llvm::getGlobalContext()) ) {
+		cerr << "main() was found but does not return an int64\n";
+		return 1;
+	} // end if wrong return type
+	if( pMainFunction->getArgumentList().size() != 1 ) {
+		cerr << "main() was found but does not take exactly 1 argument\n";
+		return 1;
+	} // end if wrong argument count
+	if( pMainFunction->getArgumentList().front().getType() != llvm::Type::getInt64Ty(llvm::getGlobalContext()) ) {
+		cerr << "main() must take an argument of type int64\n";
+		return 1;
+	} // end if wrong argument type
+
+	// JIT the function, returning a function pointer
+	int64 (*mainFunc)(int64)= (int64(*)(int64))pCodegen->GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
+	cout << "main() returned " << mainFunc(23) << endl;
 
 	return 0;
 }

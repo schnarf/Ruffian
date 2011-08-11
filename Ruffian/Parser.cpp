@@ -742,7 +742,6 @@ shared_ptr<LiteralAST> Parser::makeLiteral( Token token, const string& strLitera
 bool Parser::addVariableToScope( const shared_ptr<DeclarationAST>& pDeclaration ) {
 	// Lookup the declaration by name and fail if it exists
 	const string& strName= pDeclaration->GetName();
-	cout << "Variable " << strName << " added to scope\n";
 	if( m_parseScope.variables.find(strName) != m_parseScope.variables.end() ) {
 		cerr << "Variable \"" << strName << "\" was already declared in scope\n";
 		return false;

@@ -59,3 +59,7 @@ def operator_precedence(int x, int y) -> int {
 	var int b= y / x + 3 * (y - x);
 	return b;
 }
+
+def main(int n) -> int {
+	return fibonacci(n);
+}

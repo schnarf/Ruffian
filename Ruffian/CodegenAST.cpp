@@ -313,8 +313,5 @@ bool ModuleAST::Codegen( CodegenContext& context, CodegenScope& scope ) {
 		if( !pFunction ) return false;
 	} // end for function
 
-	// TEMP: Dump the module
-	context.GetModule()->dump();
-
 	return true;
 } // end ModuleAST::Codegen()
