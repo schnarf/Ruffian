@@ -63,7 +63,13 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	case TOKEN_PLUS: return context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" );
 	case TOKEN_MINUS: return context.GetBuilder().CreateSub( pLeft, pRight, "subtmp" );
 	case TOKEN_STAR: return context.GetBuilder().CreateMul( pLeft, pRight, "multmp" );
-	case TOKEN_SLASH: return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
+	case TOKEN_SLASH: 
+		if( m_pLeft->GetType().IsSigned() && m_pRight->GetType().IsSigned() )
+			return context.GetBuilder().CreateSDiv( pLeft, pRight, "divtmp" );
+		else if( m_pLeft->GetType().IsUnsigned() && m_pRight->GetType().IsUnsigned() )
+			return context.GetBuilder().CreateUDiv( pLeft, pRight, "divtmp" );
+		else if( m_pLeft->GetType().IsFloatingPoint() && m_pRight->GetType().IsFloatingPoint() )
+			return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
 	
 		// For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
 	case TOKEN_COMPARE:

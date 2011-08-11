@@ -18,6 +18,19 @@ public:
 private:
 	shared_ptr<Lexer> m_pLexer;			//!< Our lexer
 
+
+	//! Parses a primary expression
+	shared_ptr<ExprAST> parsePrimaryExpression();
+	//! Parses an identifier expression (variable or function call)
+	shared_ptr<ExprAST> parseIdentifierExpression();
+	//! Parses a literal expression
+	shared_ptr<LiteralAST> parseLiteralExpression();
+	//! Parses a parenthesized expression
+	shared_ptr<ExprAST> parseParenExpression();
+
+	//! Parses the right-hand side of a binary expression, given the left-hand side and its highest-precedence operator
+	shared_ptr<ExprAST> parseBinopRHS( int precedence, shared_ptr<ExprAST> pLeft );
+
 	//! Parses a function declaration or definition.
 	//! Returns either a prototype or full function
 	pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> parseFunctionDeclarationOrDefinition();
@@ -26,7 +39,7 @@ private:
 	//! Parses a statement
 	shared_ptr<StmtAST> parseStatement();
 	//! Parses an expression
-	shared_ptr<ExprAST> parseExpression( bool bSemicolon, bool bComma, bool bRparen );
+	shared_ptr<ExprAST> parseExpression();
 	//! Parses a return statement
 	shared_ptr<ReturnAST> parseReturnStatement();
 	//! Parses a variable declaration statement

@@ -50,3 +50,21 @@ inline bool IsComparisonBinop( Token binop ) {
 		return false;
 	} // end switch binop
 } // end IsComparisonBinop()
+
+//! Returns a binary operator's precedence
+//! If it's not a binary operator, returns 0
+inline int GetBinopPrecedence( Token binop ) {
+	if( !Lexer::IsBinopToken(binop) ) return 0;
+
+	// Install our binary operator precedences
+	static map<Token, int> precedence;
+	if( precedence.empty() ) {
+		precedence[TOKEN_COMPARE]= 5;
+		precedence[TOKEN_LT]= precedence[TOKEN_GT]= precedence[TOKEN_LE]= precedence[TOKEN_GE]= 10;
+		precedence[TOKEN_PLUS]= precedence[TOKEN_MINUS]= 20;
+		precedence[TOKEN_STAR]= precedence[TOKEN_SLASH]= 30;
+	} // end if empty
+
+	ASSERT( precedence.find(binop) != precedence.end() );
+	return precedence[binop];
+} // end CompareBinopPrecedence()

@@ -2,6 +2,7 @@
 #include "Parser.h"
 #include "AST.h"
 #include "Lexer.h"
+#include "SemBinop.h"
 
 //! Initialize with parser
 Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
@@ -50,6 +51,134 @@ ModuleAST* Parser::Run() {
 	// If we are here, create and return the module
 	return new ModuleAST( pPrototypes, pFunctions );
 } // end Parser::Run()
+
+
+//! Parses a primary expression
+shared_ptr<ExprAST> Parser::parsePrimaryExpression() {
+	/*
+	primary_expression
+		::= identifier_expr
+		::= literal_expr
+		::= paren_expr
+	*/
+
+	// We expect an identifier, literal, or lparen
+	shared_ptr<ExprAST> pExpr;
+	if( m_pLexer->GetCurrentToken() == TOKEN_IDENTIFIER ) {
+		const string strName= m_pLexer->GetIdentifier();
+		pExpr= parseIdentifierExpression();
+		if( !pExpr ) cerr << "Variable \"" + strName + "\" was not declared in the current scope while parsing primary expression\n";
+	} else if( Lexer::IsLiteralToken(m_pLexer->GetCurrentToken()) ) {
+		pExpr= parseLiteralExpression();
+		if( !pExpr ) cerr << "Could not parse literal for primary expression\n";
+	} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
+		pExpr= parseParenExpression();
+		if( !pExpr ) cerr << "Could not parse parenthesized expression for primary expression\n";
+	} else {
+		cerr << "Expected identifier, literal, or '(' while parsing primary expression\n";
+		return NULL;
+	}
+
+	return pExpr;
+} // end Parser::parsePrimaryExpression()
+
+
+//! Parses an identifier expression (variable or function call)
+shared_ptr<ExprAST> Parser::parseIdentifierExpression() {
+	/*
+	identifier_expr
+		::= identifier
+		::= call_expr
+	*/
+
+	// This is a variable or a function call. Determine this by whether the next token is a lparen.
+	const string& strName= m_pLexer->GetIdentifier();
+	m_pLexer->GetNextToken();
+
+	// If this is a function call, parse the call expression and return it
+	if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) return parseCallExpression( strName );
+
+	// If we're here, this is a variable reference
+	// Look up the declaration, and give an error if it hasn't been declared
+	// Eat the identifier
+	shared_ptr<DeclarationAST> pDeclaration= findVariableInScope( strName );
+	// Only create an AST node if the declaration exists
+	if( pDeclaration ) return shared_ptr<ExprAST>( new VariableAST(pDeclaration) );
+	else return NULL;
+} // end Parser::parseIdentifierExpression()
+
+
+//! Parses a literal expression
+shared_ptr<LiteralAST> Parser::parseLiteralExpression() {
+	// See makeLiteral() for the definition of a literal_expr
+
+	// Create the literal expression and do error handling. Eat the token in any case.
+	shared_ptr<LiteralAST> pLiteral= makeLiteral( m_pLexer->GetCurrentToken(), m_pLexer->GetLiteral() );
+	m_pLexer->GetNextToken();
+	
+	return pLiteral;
+} // end Parser::ParseLiteralExpression()
+
+
+//! Parses a parenthesized expression
+shared_ptr<ExprAST> Parser::parseParenExpression() {
+	/*
+	paren_expr
+		::= '(' expression ')'
+	*/
+
+	// Eat the left paren
+	m_pLexer->GetNextToken();
+	// Parse an expression up until the next unmatched rparen
+	shared_ptr<ExprAST> pExpr= parseExpression();
+	
+	// Eat the rparen
+	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
+	m_pLexer->GetNextToken();
+
+	return pExpr;
+} // end Parser::parseParenExpression()
+
+
+//! Parses the right-hand side of a binary expression, given the left-hand side and its highest-precedence operator
+shared_ptr<ExprAST> Parser::parseBinopRHS( int precedence, shared_ptr<ExprAST> pLeft ) {
+	while( 1 ) {
+		// We expect a binop here. If it does not bind as tightly as our current binop,
+		// then just return the LHS and we are done
+		if( !Lexer::IsBinopToken(m_pLexer->GetCurrentToken()) || GetBinopPrecedence(m_pLexer->GetCurrentToken()) < precedence ) {
+			return pLeft;
+		} // end if done
+
+		// Save and eat the binop
+		Token binop= m_pLexer->GetCurrentToken();
+		m_pLexer->GetNextToken();
+
+		// Parse the primary expression after the binop
+		shared_ptr<ExprAST> pRight= parsePrimaryExpression();
+		if( !pRight ) {
+			cerr << "Could not parse primary expression for binop rhs\n";
+			return NULL;
+		} // end if error
+
+		// Now check for another binop
+		// If the binop binds less tightly with the RHS than the operator after
+		// the RHS, then let the pending operator take the RHS as its LHS
+		if( Lexer::IsBinopToken(m_pLexer->GetCurrentToken()) && GetBinopPrecedence(binop) < GetBinopPrecedence(m_pLexer->GetCurrentToken()) ) {
+			pRight= parseBinopRHS( GetBinopPrecedence(binop), pRight );
+			if( !pRight ) {
+				cerr << "Could not parse binop rhs for binop rhs\n";
+				return NULL;
+			} // end if error
+		} // end if parsing rhs
+
+		// Merge LHS and RHS
+		pLeft.reset( new BinopAST(binop, pLeft, pRight) );
+	} // end while parsing
+
+	// We should never get here
+	ASSERT( false );
+	return NULL;
+} // end parseBinopRHS()
 
 
 //! Parses a function declaration or definition.
@@ -241,136 +370,21 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 
 
 //! Parses an expression
-shared_ptr<ExprAST> Parser::parseExpression( bool bSemicolon, bool bComma, bool bRparen ) {
-	/* expression_list
-		::= ''
-		::= expression ',' expression_list
-
-	   call_expr
-	    ::= identifier '(' expression_list ')'
-
-	   binop
-		::= '=='
-		::= '+'
-		::= '-'
-		::= '*'
-		::= '/'
-
-	   binop_expr
-		::= expression binop expression
-
-	   paren_expr
-	    ::= '(' expression ')'
-
-	   expression
-	    ::= identifier
-		::= literal
-		::= call_expr
-		::= binop_expr
-		::= paren_expr
+shared_ptr<ExprAST> Parser::parseExpression() {
+	/*
+	expression
+		::= primary_expr binoprhs
 	*/
 
-	// If we have a semicolon already, then this is an empty expression
-	//if( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON ) return new EmptyAST;
-
-	ASSERT( bSemicolon || bComma || bRparen );
-
-	// Now parse until we hit a terminator
-	// We store the expression we are building
-	shared_ptr<ExprAST> pExpr;
-	while( !(bSemicolon && m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON)
-		&& !(bComma && m_pLexer->GetCurrentToken() == TOKEN_COMMA)
-		&& !(bRparen && m_pLexer->GetCurrentToken() == TOKEN_RPAREN) ) {
-
-		// Make an AST node for the potential identifier or literal, then eat the identifier/literal
-		Token lastToken= m_pLexer->GetCurrentToken();
-		shared_ptr<ExprAST> pLastExpr;
-		string strIdentifier;
-		if( lastToken == TOKEN_IDENTIFIER ) {
-			pLastExpr.reset( new VariableAST( findVariableInScope(m_pLexer->GetIdentifier())) );
-			strIdentifier= m_pLexer->GetIdentifier();
-		} else if( Lexer::IsLiteralToken(lastToken) ) {
-			pLastExpr= makeLiteral( lastToken, m_pLexer->GetLiteral() );
-			ASSERT( pLastExpr );
-		}
-
-		if( pLastExpr ) m_pLexer->GetNextToken();
-
-		// Now we'll try to distinguish what kind of expression this is. If we have a terminator,
-		// it's a variable expression.
-		// If we have a lparen, it's a function call or paren expression
-		// If we have a binary opertor, it's a binop expression
-		if( (bSemicolon && m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON)
-			|| (bComma && m_pLexer->GetCurrentToken() == TOKEN_COMMA)
-			|| (bRparen && m_pLexer->GetCurrentToken() == TOKEN_RPAREN) ) {
-			
-			// Do not eat the terminator
-			ASSERT( !pExpr );
-			pExpr.swap( pLastExpr );
-			break;
-		} // end if semicolon
-		else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN && lastToken == TOKEN_IDENTIFIER ) {
-			ASSERT( !pExpr );
-			pExpr= parseCallExpression( strIdentifier );
-			if( !pExpr ) {
-				cerr << "Could not parse call expression while parsing expression\n";
-				return NULL;
-			} // end if parse error
-		} // end if function call
-		else if( lastToken == TOKEN_LPAREN && !pLastExpr ) {
-			ASSERT( !pExpr );
-			// Eat the lparen
-			m_pLexer->GetNextToken();
-			// Parse the expression up until the rparen
-			pExpr= parseExpression( false, false, true );
-			if( !pExpr ) {
-				cerr << "Could not parse paren expression while parsing expression\n";
-				return NULL;
-			} // end if parse error
-
-			// Eat the rparen
-			ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
-			m_pLexer->GetNextToken();
-		} // end if paren expression
-		else if( Lexer::IsBinopToken(m_pLexer->GetCurrentToken()) ) {
-			// This is a binary operator. The expression we've parsed so far is going to be the LHS.
-			// The rest will be the RHS
-			if( pExpr == NULL ) {
-				pExpr= pLastExpr;
-			} // end if no LHS
-			else {
-				pLastExpr.reset();
-			}
-
-			// Eat the binary operator
-			Token binop= m_pLexer->GetCurrentToken();
-			m_pLexer->GetNextToken();
-
-			// Parse the RHS
-			shared_ptr<ExprAST> pRight( parseExpression(bSemicolon, bComma, bRparen) );
-			if( !pRight ) {
-				cerr << "Expected a RHS to the binary operator \"" << Lexer::StringifyToken(binop) << "\" while parsing an expression\n";
-				return NULL;
-			} // end if no RHS
-
-			// Now create the binop, giving it ownership of the expressions
-			pExpr.reset( new BinopAST(binop, pExpr, pRight) );
-		} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
-			// Paren expression
-			ASSERT( !pExpr );
-		} else {
-			// This is a parse error
-			cerr << "Unexpected token \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\" while parsing an expression\n";
-			return NULL;
-		}
-	} // end while parsing
-	
-	if( !pExpr ) {
-		cerr << "Expected an expression but could not parse anything\n";
+	// Parse the LHS
+	shared_ptr<ExprAST> pLeft= parsePrimaryExpression();
+	if( !pLeft ) {
+		cerr << "Could not parse primary expression for expression\n";
 		return NULL;
-	}
-
-	return pExpr;
+	} // end if error
+	
+	// Parse the RHS
+	return parseBinopRHS( 0, pLeft );
 } // end Parser:parseExpression()
 
 
@@ -389,7 +403,7 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 	m_pLexer->GetNextToken();
 
 	// Parse the expression
-	shared_ptr<ExprAST> pExpr( parseExpression(true, false, false) );
+	shared_ptr<ExprAST> pExpr( parseExpression() );
 	if( !pExpr ) return NULL;
 
 	// Now eat the semicolon
@@ -438,7 +452,7 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 		m_pLexer->GetNextToken();
 
 		// Parse the right-hand side
-		pInitializer= parseExpression( true, false, false );
+		pInitializer= parseExpression();
 		if( !pInitializer ) return NULL;
 	} else if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
 		cerr << "Expected ';' or '=' while parsing a variable declaration\n";
@@ -476,7 +490,7 @@ shared_ptr<AssignmentAST> Parser::parseAssignmentExpression() {
 
 	// Eat the equals, then try to parse an expression
 	m_pLexer->GetNextToken();
-	shared_ptr<ExprAST> pExpr( parseExpression(true, false, false) );
+	shared_ptr<ExprAST> pExpr( parseExpression() );
 
 	if( !pExpr ) {
 		cerr << "Expected an expression while parsing an assignment expression\n";
@@ -537,10 +551,10 @@ shared_ptr<TypeAST> Parser::parseType() {
 //! Parses a function call expression, having already parsed the function name
 shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 	/* expression_list
-		::= ''
 		::= expression ',' expression_list
 
 	   call_expr
+	    ::= identifier '(' ')'
 	    ::= identifier '(' expression_list ')'
 	*/
 
@@ -562,7 +576,7 @@ shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 	// Now parse all the arguments
 	vector< shared_ptr<ExprAST> > pArgs;
 	while( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
-		shared_ptr<ExprAST> pExpr( parseExpression(false, true, true) );
+		shared_ptr<ExprAST> pExpr( parseExpression() );
 		if( !pExpr ) {
 			cerr << "Could not parse expression in function call argument list\n";
 			return NULL;
@@ -645,7 +659,7 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 	m_pLexer->GetNextToken();
 
 	// Parse the expression up to the right paren
-	shared_ptr<ExprAST> pCondExpr( parseExpression(false, false, true) );
+	shared_ptr<ExprAST> pCondExpr( parseExpression() );
 	if( !pCondExpr ) {
 		cerr << "Expected an expression between parentheses while parsing a conditional statement\n";
 		return NULL;

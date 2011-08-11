@@ -30,7 +30,7 @@ class LiteralAST : public ExprAST {
 class VariableAST : public ExprAST {
 public:
 	//! Initialize with declaration
-	VariableAST( const shared_ptr<DeclarationAST>& pDeclaration ) : m_pDeclaration(pDeclaration) {}
+	VariableAST( const shared_ptr<DeclarationAST>& pDeclaration ) : m_pDeclaration(pDeclaration) { ASSERT( m_pDeclaration ); }
 
 	//! Returns our variable name
 	const string& GetName() const;
