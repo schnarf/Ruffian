@@ -18,6 +18,8 @@ public:
 	static const TypeAST& GetFloat() { static TypeAST typeFloat("float"); return typeFloat; }
 	//! Returns the static instance of the "bool" type
 	static const TypeAST& GetBool() { static TypeAST typeBool("bool"); return typeBool; }
+	//! Returns the static instance of the "void" type
+	static const TypeAST& GetVoid() { static TypeAST typeVoid("void"); return typeVoid; }
 	//! Returns the static instance of the "error" type, not a valid type,
 	//! but one used to report that an expression has no valid type
 	static const TypeAST& GetError() { static TypeAST typeError("error-type"); return typeError; }
@@ -27,6 +29,7 @@ public:
 		if( strName == "int" ) return true;
 		if( strName == "float" ) return true;
 		if( strName == "bool" ) return true;
+		if( strName == "void" ) return true;
 		return false;
 	} // end IsBuiltinTypeName()
 

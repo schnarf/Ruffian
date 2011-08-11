@@ -113,7 +113,10 @@ Value* CallAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		if( !pArgs.back() ) return ErrorCodegen( "Error generating function argument in call expression\n" );
 	} // end for argument
 
-	return context.GetBuilder().CreateCall( pFunction, pArgs.begin(), pArgs.end(), "calltmp" );
+	// We can't assign this temporary a name if it's a void, or LLVM will complain,
+	// so only give it the name "calltmp" if it's non-void. For now we still return
+	// the Value, but maybe consider returning NULL.
+	return context.GetBuilder().CreateCall( pFunction, pArgs.begin(), pArgs.end(), m_pPrototype->GetReturnType() == TypeAST::GetVoid() ? "" : "calltmp" );
 } // end CallAST::Codegen()
 
 
@@ -292,6 +295,7 @@ const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	if( *this == GetInt() ) return Type::getInt64Ty(getGlobalContext());
 	else if( *this == GetFloat() ) return Type::getDoubleTy(getGlobalContext());
 	else if( *this == GetBool() ) return Type::getInt1Ty(getGlobalContext());
+	else if( *this == GetVoid() ) return Type::getVoidTy(getGlobalContext());
 	else {
 		cerr << "Unknown type \"" << m_strType << "\"";
 		return NULL;

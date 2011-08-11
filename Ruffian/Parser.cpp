@@ -232,6 +232,12 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 		}
 		shared_ptr<TypeAST> pType( parseType() );
 
+		// Prevent void arguments
+		if( *pType == TypeAST::GetVoid() ) {
+			cerr << "Cannot have an argument of type void, while parsing function prototype argument list\n";
+			return null_ret;
+		} // end if void type
+
 		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 			cerr << "Expected an identifier (variable) while parsing function prototype argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
 			return null_ret;
@@ -484,6 +490,13 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	// Now eat the current token, which we expect to be a semicolon, then create the declaration AST
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
+
+	// Disallow variables of type "void"
+	if( TypeAST(strType) == TypeAST::GetVoid() ) {
+		cerr << "Cannot declare a variable of type \"void\"\n";
+		return NULL;
+	} // end if void
+
 	// Add the variable to the current scope and then return the declaration
 	shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strName, shared_ptr<TypeAST>(new TypeAST(strType)), pInitializer) );
 	addVariableToScope( pDeclaration );
@@ -523,6 +536,20 @@ shared_ptr<AssignmentAST> Parser::parseAssignmentExpression( const string& strTa
 		cerr << "Variable \"" << strTarget << "\" was not declared in the current scope, in assignment expression\n";
 		return NULL;
 	} // end if not declared
+
+	// Do type-checking
+	if( pExpr->GetType() == TypeAST::GetVoid() ) {
+		cerr << "Cannot assign an expression that evaluates to 'void', in assignment expression\n";
+		return NULL;
+	} // end if void
+
+	// For now, don't do any implicit conversion
+	// TODO: implicit conversion rules and implementation
+	if( pExpr->GetType() != pDeclaration->GetType() ) {
+		cerr << "Cannot assign a value of type \"" + pExpr->GetType().GetName() + "\" to type \"" +
+			pDeclaration->GetType().GetName() + "\" in assignment expression\n";
+		return NULL;
+	} // end if cannot convert
 
 	return shared_ptr<AssignmentAST>( new AssignmentAST(shared_ptr<VariableAST>(new VariableAST(pDeclaration)), pExpr) );
 } // end Parser::parseAssignmentExpression()

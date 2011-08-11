@@ -60,7 +60,7 @@ def operator_precedence(int x, int y) -> int {
 	return b;
 }
 
-def printInt(int n) -> int;
+def printInt(int n) -> void;
 
 def main(int n) -> int {
 	printInt(42);
