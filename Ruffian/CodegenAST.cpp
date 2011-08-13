@@ -26,9 +26,9 @@ Value* IntegerAST::Codegen( CodegenContext& context, CodegenScope& scope ) const
 } // end IntegerAST::Codegen()
 
 
-Value* FloatAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+Value* DoubleAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	return ConstantFP::get( getGlobalContext(), m_apValue );
-} // end FloatAST::Codegen()
+} // end DoubleAST::Codegen()
 
 
 Value* BoolAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
@@ -476,7 +476,8 @@ void ExprStmtAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 
 const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	if( *this == GetInt() ) return Type::getInt64Ty(getGlobalContext());
-	else if( *this == GetFloat() ) return Type::getDoubleTy(getGlobalContext());
+	else if( *this == GetFloat() ) return Type::getFloatTy(getGlobalContext());
+	else if( *this == GetDouble() ) return Type::getDoubleTy(getGlobalContext());
 	else if( *this == GetBool() ) return Type::getInt1Ty(getGlobalContext());
 	else if( *this == GetVoid() ) return Type::getVoidTy(getGlobalContext());
 	else {

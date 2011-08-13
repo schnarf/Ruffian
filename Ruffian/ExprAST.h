@@ -103,18 +103,18 @@ private:
 
 
 //! Float literal AST node
-class FloatAST : public LiteralAST {
+class DoubleAST : public LiteralAST {
 public:
 	//! Initialize with string representation of value
-	FloatAST( const string& strValue ) : m_apValue(llvm::APFloat::IEEEdouble, strValue) {}
+	DoubleAST( const string& strValue ) : m_apValue(llvm::APFloat::IEEEdouble, strValue) {}
 	//! Initialize with value
-	FloatAST( double fValue ) : m_apValue(fValue) {}
+	DoubleAST( double fValue ) : m_apValue(fValue) {}
 
 	virtual const TypeAST& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	llvm::APFloat m_apValue;
-}; // end class FloatAST
+}; // end class DoubleAST
 
 
 //! Bool literal AST node

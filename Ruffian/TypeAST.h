@@ -16,6 +16,8 @@ public:
 	static const TypeAST& GetInt() { return *m_pTypeInt; }
 	//! Returns the static instance of the "float" type
 	static const TypeAST& GetFloat() { return *m_pTypeFloat; }
+	//! Returns the static instance of the "double" type
+	static const TypeAST& GetDouble() { return *m_pTypeDouble; }
 	//! Returns the static instance of the "bool" type
 	static const TypeAST& GetBool() { return *m_pTypeBool; }
 	//! Returns the static instance of the "void" type
@@ -30,6 +32,7 @@ public:
 		if( pTypes.empty() ) {
 			pTypes.push_back( m_pTypeInt );
 			pTypes.push_back( m_pTypeFloat );
+			pTypes.push_back( m_pTypeDouble );
 			pTypes.push_back( m_pTypeBool );
 			pTypes.push_back( m_pTypeVoid );
 			pTypes.push_back( m_pTypeError );
@@ -42,6 +45,7 @@ public:
 	static bool IsBuiltinTypeName( const string& strName ) {
 		if( strName == "int" ) return true;
 		if( strName == "float" ) return true;
+		if( strName == "double" ) return true;
 		if( strName == "bool" ) return true;
 		if( strName == "void" ) return true;
 		return false;
@@ -52,7 +56,7 @@ public:
 	//! Returns whether this type is integral
 	bool IsIntegral() const { return m_strType == "int"; }
 	//! Returns whether this type is floating-point
-	bool IsFloatingPoint() const { return m_strType == "float"; }
+	bool IsFloatingPoint() const { return m_strType == "float" || m_strType == "double"; }
 	//! Returns whether this type is arithmetic
 	bool IsArithmetic() const { return IsIntegral() || IsFloatingPoint(); }
 	//! Returns whether this type is signed integral
@@ -70,6 +74,7 @@ private:
 	//! Built-in types
 	static shared_ptr<TypeAST> m_pTypeInt,
 	                           m_pTypeFloat,
+							   m_pTypeDouble,
 				               m_pTypeBool,
 				               m_pTypeVoid,
 				               m_pTypeError;

@@ -15,6 +15,14 @@ static void printNewline() {
 	cout << endl;
 } // end printNewline()
 
+static void printFloat( float f ) {
+	cout << f << endl;
+} // end printFloat()
+
+static void printDouble( double f ) {
+	cout << f << endl;
+} // end printDouble()
+
 int main( int argc, char* argv[] ) {
 
 	llvm::InitializeNativeTarget();
@@ -59,6 +67,22 @@ int main( int argc, char* argv[] ) {
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
 		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printNewline", pCodegen->GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printNewline", (void*)printNewline );
+	}
+
+	{
+		vector<const llvm::Type*> pArgTypes;
+		pArgTypes.push_back( llvm::Type::getFloatTy(llvm::getGlobalContext()) );
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printFloat", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "printFloat", (void*)printFloat );
+	}
+
+	{
+		vector<const llvm::Type*> pArgTypes;
+		pArgTypes.push_back( llvm::Type::getDoubleTy(llvm::getGlobalContext()) );
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printDouble", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "printDouble", (void*)printDouble );
 	}
 
 	bool bCodegenSuccess= pCodegen->Run( pModule );

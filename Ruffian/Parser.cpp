@@ -715,7 +715,7 @@ shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 
 	for( uint iArg=0; iArg<pArgs.size(); ++iArg ) {
 		if( pArgs[iArg]->GetType() != pPrototype->GetArgs()[iArg]->GetType() ) {
-			cerr << "Argument " << 1+iArg << " for function " << strName << " has the wrong type\n";
+			cerr << "Argument " << 1+iArg << " for function " << strName << " has the wrong type. Found \"" + pArgs[iArg]->GetType().GetName() + "\" but expected \"" + pPrototype->GetArgs()[iArg]->GetType().GetName() + "\"\n";
 			return NULL;
 		} // end if wrong type
 	} // end for argument
@@ -917,7 +917,7 @@ shared_ptr<LiteralAST> Parser::makeLiteral( Token token, const string& strLitera
 	case TOKEN_LITERAL_INT:
 		return shared_ptr<LiteralAST>( new IntegerAST(strLiteral) );
 	case TOKEN_LITERAL_FLOAT:
-		return shared_ptr<FloatAST>( new FloatAST(strLiteral) );
+		return shared_ptr<DoubleAST>( new DoubleAST(strLiteral) );
 	case TOKEN_LITERAL_BOOL:
 		return shared_ptr<BoolAST>( new BoolAST(strLiteral) );
 	default:
