@@ -278,22 +278,25 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 	typedef pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> ret_pair_type;
 	const ret_pair_type null_ret( nullptr, nullptr );
 
-	// Check for "def"
+	// Check for "def" and eat it
 	if( m_pLexer->GetCurrentToken() != TOKEN_DEF ) {
 		cerr << "Expected \"def\" while parsing function prototype\n";
 		return null_ret;
 	} // end if error
+	m_pLexer->GetNextToken();
 
 	// Parse the identifier for the function's name
-	if( m_pLexer->GetNextToken() != TOKEN_IDENTIFIER ) {
+	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected an identifier while parsing function prototype\n";
 		return null_ret;
 	} // end if no identifier
 
+	// Store the identifier and eat it
 	string strName= m_pLexer->GetIdentifier();
+	m_pLexer->GetNextToken();
 
 	// Parse the argument list
-	if( m_pLexer->GetNextToken() != TOKEN_LPAREN ) {
+	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
 		cerr << "Expected '(' while parsing function prototype argument list\n";
 		return null_ret;
 	} // end if no left paren
@@ -340,16 +343,20 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 		pArgs.push_back( pDeclaration );
 	} // end while parsing argument list
 
+	// We should have only gotten here by hitting a rparen
+	// Eat the rparen
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
+	m_pLexer->GetNextToken();
 
-	// Parse the '->' before the return type
-	if( m_pLexer->GetNextToken() != TOKEN_ARROW ) {
+	// Eat the '->' before the return type
+	if( m_pLexer->GetCurrentToken() != TOKEN_ARROW ) {
 		cerr << "Expected '->' while parsing function definition\n";
 		return null_ret;
 	} // end if no arrow
+	m_pLexer->GetNextToken();
 	
 	// Parse the return type
-	if( m_pLexer->GetNextToken() != TOKEN_IDENTIFIER ) {
+	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected a typename while parsing function return type\n";
 		return null_ret;
 	} // end if no identifier

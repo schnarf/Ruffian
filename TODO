@@ -20,5 +20,4 @@ Compiler
 
 Refactory
 ==================================
-- Make Lexer::GetNextToken() return void, to prevent bugs
 - Have StmtAST::Codegen return a bool indicating success or failure, and check it

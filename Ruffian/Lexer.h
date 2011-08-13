@@ -57,8 +57,8 @@ public:
 
 	//! Gets the current token
 	Token GetCurrentToken() const { return m_currentToken; }
-	//! Advances to the next token, returning it
-	Token GetNextToken();
+	//! Advances to the next token
+	void GetNextToken();
 
 	//! Gets the name of the current identifier token
 	string GetIdentifier() const { ASSERT( GetCurrentToken() == TOKEN_IDENTIFIER ); return m_strIdentifier; }

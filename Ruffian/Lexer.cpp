@@ -15,10 +15,9 @@ Lexer::Lexer( const shared_ptr<FILE>& pFile ) :
 } // end Lexer::Lexer()
 
 
-//! Advances to the next token, returning it
-Token Lexer::GetNextToken() {
+//! Advances to the next token
+void Lexer::GetNextToken() {
 	m_currentToken= getTok();
-	return m_currentToken;
 } // end Lexer::GetNextToken()
 
 
