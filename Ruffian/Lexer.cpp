@@ -38,6 +38,8 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_SLASH: return "/";
 	case TOKEN_ASSIGN: return "=";
 	case TOKEN_COMPARE: return "==";
+	case TOKEN_INCREMENT: return "++";
+	case TOKEN_DECREMENT: return "--";
 	case TOKEN_LT: return "<";
 	case TOKEN_GT: return ">";
 	case TOKEN_LE: return "<=";
@@ -135,7 +137,12 @@ Token Lexer::getTok() {
 	Token token;
 
 	switch( m_lastChar ) {
-	case '+': token= TOKEN_PLUS; bEatChar= true; break;
+	case '+': {
+		char nextChar= readChar();
+		if( nextChar == '+' ) { token= TOKEN_INCREMENT; bEatChar= true; }
+		else { token= TOKEN_PLUS; bEatChar= false; }
+		break;
+	}
 	case '*': token= TOKEN_STAR; bEatChar= true; break;
 	case '/': 
 		if( readChar() == '/' ) {
@@ -148,10 +155,13 @@ Token Lexer::getTok() {
 			bEatChar= true;
 		}
 		break;
-	case '-':
-		if( readChar() == '>' ) { token= TOKEN_ARROW; bEatChar= true; }
+	case '-': {
+		char nextChar= readChar();
+		if( nextChar == '>' ) { token= TOKEN_ARROW; bEatChar= true; }
+		else if( nextChar == '-' ) { token= TOKEN_DECREMENT; bEatChar= true; }
 		else { token= TOKEN_MINUS; bEatChar= false; }
 		break;
+	}
 	case '(': token= TOKEN_LPAREN; bEatChar= true; break;
 	case ')': token= TOKEN_RPAREN; bEatChar= true; break;
 	case '{': token= TOKEN_LBRACE; bEatChar= true; break;
