@@ -8,6 +8,15 @@
 Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
 	m_pLexer(pLexer) {
 
+	// Initialize our scope with our built-in types
+	for( vector<shared_ptr<const TypeAST>>::const_iterator itType=TypeAST::GetBuiltinTypes().begin(); itType!=TypeAST::GetBuiltinTypes().end(); ++itType ) {
+		// Don't add the error type
+		if( **itType == TypeAST::GetError() ) continue;
+
+		// Add the type to our map
+		m_parseScope.types[(*itType)->GetName()]= *itType;
+	} // end for type
+
 } // end Parser::Parser()
 
 
@@ -171,6 +180,13 @@ shared_ptr<ExprAST> Parser::parseBinopRHS( int precedence, shared_ptr<ExprAST> p
 			} // end if error
 		} // end if parsing rhs
 
+		// Before we construct the binop AST node, check for an assignment expression
+		// These are special-cased: the LHS must be a variable
+		if( binop == TOKEN_ASSIGN && !dynamic_pointer_cast<VariableAST>(pLeft) ) {
+			cerr << "The left-hand side of an assignment expression must be a variable\n";
+			return NULL;
+		} // end if assignment
+
 		// Merge LHS and RHS
 		pLeft.reset( new BinopAST(binop, pLeft, pRight) );
 	} // end while parsing
@@ -230,7 +246,7 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 			cerr << "Expected an identifier (type) while parsing function prototype argument list, found \"" << Lexer::StringifyToken(m_pLexer->GetCurrentToken()) << "\"\n";
 			return null_ret;
 		}
-		shared_ptr<TypeAST> pType( parseType() );
+		shared_ptr<const TypeAST> pType( parseType() );
 
 		// Prevent void arguments
 		if( *pType == TypeAST::GetVoid() ) {
@@ -276,7 +292,7 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 		return null_ret;
 	} // end if no identifier
 	
-	shared_ptr<TypeAST> pReturnType( parseType() );
+	shared_ptr<const TypeAST> pReturnType( parseType() );
 
 	// Now lookup the prototype, and create it if it does not exist
 	shared_ptr<PrototypeAST> pPrototype= findPrototypeInScope( strName );
@@ -355,10 +371,9 @@ shared_ptr<BlockAST> Parser::parseBlock() {
 //! Parses a statement
 shared_ptr<StmtAST> Parser::parseStatement() {
 	/* statement
+		::= expression ';'
 		::= variable_declaration
 		::= return_stmt
-		::= assignment_stmt
-		::= call_expr
 		::= block
 		::= conditional_stmt
 	*/
@@ -366,27 +381,30 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 	switch( m_pLexer->GetCurrentToken() ) {
 	case TOKEN_RETURN: return parseReturnStatement();
 	case TOKEN_IDENTIFIER: {
-		// This is either an assignment statement, variable declaration statement, or call expression
-		const string strIdentifier= m_pLexer->GetIdentifier();
-		m_pLexer->GetNextToken();
-		// We expect either an equals sign or lparen
-		if( m_pLexer->GetCurrentToken() == TOKEN_ASSIGN ) {
-			return parseAssignmentExpression( strIdentifier );
-		} else if( m_pLexer->GetCurrentToken() == TOKEN_IDENTIFIER ) {
-			return parseVariableDeclaration( strIdentifier );
-		} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
-			shared_ptr<StmtAST> pRet( new CallStmtAST(parseCallExpression(strIdentifier)) );
-			// Eat the semicolon, which we expect
-			if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
-				cerr << "Expected ';' after call statement while parsing statement\n";
+		// This is either a variable declaration statement or expression statement
+		// If the identifier is a type we recognize, then parse it as a variable
+		// declaration, otherwise try to parse an expression
+
+		if( findTypeInScope(m_pLexer->GetIdentifier()) ) {
+			// Parse this as a variable declaration
+			return parseVariableDeclaration();
+		} else {
+			// Parse this as an expression statement
+			shared_ptr<ExprAST> pExpr= parseExpression();
+			if( !pExpr ) {
+				cerr << "Could not parse expression while parsing statement\n";
 				return NULL;
-			} // end if unexpected token
+			} // end if could not parse
+
+			// We expect to eat a semicolon
+			if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
+				cerr << "Expected ';' after expression while parsing statement\n";
+				return NULL;
+			} // end if no semicolon
 			m_pLexer->GetNextToken();
 
-			return pRet;
-		} else {
-			cerr << "Expected '=' or '(' after identifier while parsing statement\n";
-			return NULL;
+			// Return the statement expression
+			return shared_ptr<StmtAST>( new ExprStmtAST(pExpr) );
 		}
 	}
 	case TOKEN_LBRACE: return parseBlock();
@@ -443,18 +461,27 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 } // end Parser::parseReturnStatement()
 
 
-//! Parses a variable declaration, with the type already parsed
-shared_ptr<DeclarationAST> Parser::parseVariableDeclaration( const string& strType ) {
+//! Parses a variable declaration
+shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	/* variable_declaration
 		::= identifier identifier ';'
 		::= identifier identifier '=' expression ';'
 	*/
 
-	// Now parse the identifier
+	// Parse the type identifier
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected an identifier while parsing a variable declaration\n";
 		return NULL;
-	} // end if no identifier
+	} // end if no type identifier
+
+	string strType= m_pLexer->GetIdentifier();
+	m_pLexer->GetNextToken();
+
+	// Now parse the variable identifier
+	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
+		cerr << "Expected an identifier while parsing a variable declaration\n";
+		return NULL;
+	} // end if no variable identifier
 
 	string strName= m_pLexer->GetIdentifier();
 
@@ -470,76 +497,32 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration( const string& strTy
 		pInitializer= parseExpression();
 		if( !pInitializer ) return NULL;
 	} else if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
-		cerr << "Expected ';' or '=' while parsing a variable declaration\n";
+		cerr << "Expected ';' or '=' while parsing a variable declaration, found \"" + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) + " " + m_pLexer->GetIdentifier() +  "\"\n";
 		return NULL;
 	}
 
-	// Now eat the current token, which we expect to be a semicolon, then create the declaration AST
+	// Now eat the current token, which we expect to be a semicolon
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
 
+	// Lookup and verify that our type exists
+	shared_ptr<const TypeAST> pType= findTypeInScope( strType );
+	if( !pType ) {
+		cerr << "Type \"" + strType + "\" was not declared in scope while parsing a variable declaration\n";
+		return NULL;
+	} // end if type not found
+
 	// Disallow variables of type "void"
-	if( TypeAST(strType) == TypeAST::GetVoid() ) {
+	if( *pType == TypeAST::GetVoid() ) {
 		cerr << "Cannot declare a variable of type \"void\"\n";
 		return NULL;
 	} // end if void
 
 	// Add the variable to the current scope and then return the declaration
-	shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strName, shared_ptr<TypeAST>(new TypeAST(strType)), pInitializer) );
+	shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strName, pType, pInitializer) );
 	addVariableToScope( pDeclaration );
 	return pDeclaration;
 } // end Parser::parseVariableDeclaration()
-
-
-//! Parses an assignment expression, having already parsed the target's name
-shared_ptr<AssignmentAST> Parser::parseAssignmentExpression( const string& strTarget ) {
-	// TODO: allow expressions to be lvalues, like array[2]
-
-	/* assignment_stmt
-		::= identifier '=' expression ';'
-	*/
-
-	if( m_pLexer->GetCurrentToken() != TOKEN_ASSIGN ) {
-		cerr << "Expected '=' while parsing an assignment expression\n";
-		return NULL;
-	} // end if no '='
-
-	// Eat the equals, then try to parse an expression
-	m_pLexer->GetNextToken();
-	shared_ptr<ExprAST> pExpr( parseExpression() );
-
-	if( !pExpr ) {
-		cerr << "Expected an expression while parsing an assignment expression\n";
-		return NULL;
-	} // end if no expression
-
-	// Now we expect a semicolon, which we should eat
-	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
-	m_pLexer->GetNextToken();
-
-	// Look up the variable declaration
-	shared_ptr<DeclarationAST> pDeclaration= findVariableInScope( strTarget );
-	if( !pDeclaration ) {
-		cerr << "Variable \"" << strTarget << "\" was not declared in the current scope, in assignment expression\n";
-		return NULL;
-	} // end if not declared
-
-	// Do type-checking
-	if( pExpr->GetType() == TypeAST::GetVoid() ) {
-		cerr << "Cannot assign an expression that evaluates to 'void', in assignment expression\n";
-		return NULL;
-	} // end if void
-
-	// For now, don't do any implicit conversion
-	// TODO: implicit conversion rules and implementation
-	if( pExpr->GetType() != pDeclaration->GetType() ) {
-		cerr << "Cannot assign a value of type \"" + pExpr->GetType().GetName() + "\" to type \"" +
-			pDeclaration->GetType().GetName() + "\" in assignment expression\n";
-		return NULL;
-	} // end if cannot convert
-
-	return shared_ptr<AssignmentAST>( new AssignmentAST(shared_ptr<VariableAST>(new VariableAST(pDeclaration)), pExpr) );
-} // end Parser::parseAssignmentExpression()
 
 
 //! Parses a variable identifier
@@ -565,7 +548,7 @@ shared_ptr<VariableAST> Parser::parseVariable() {
 
 
 //! Parses a type identifier
-shared_ptr<TypeAST> Parser::parseType() {
+shared_ptr<const TypeAST> Parser::parseType() {
 	/* type ::= identifier */
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
 		cerr << "Expected an identifier while parsing a type\n";
@@ -574,7 +557,15 @@ shared_ptr<TypeAST> Parser::parseType() {
 
 	string strName= m_pLexer->GetIdentifier();
 	m_pLexer->GetNextToken();
-	return shared_ptr<TypeAST>( new TypeAST(strName) );
+
+	// Look up the type
+	shared_ptr<const TypeAST> pType= findTypeInScope( strName );
+	if( !pType ) {
+		cerr << "Type \"" + strName + "\" was not declared in scope\n";
+		return NULL;
+	} // end if not found
+
+	return pType;
 } // end Parser::parseType()
 
 
@@ -788,7 +779,7 @@ bool Parser::addVariableToScope( const shared_ptr<DeclarationAST>& pDeclaration 
 bool Parser::addPrototypeToScope( const shared_ptr<PrototypeAST>& pPrototype ) {
 	//! Lookup the function by name and fail if it exists with a different signature
 	const string& strName= pPrototype->GetName();
-	map<string, shared_ptr<PrototypeAST>>::iterator itProto= m_parseScope.prototypes.find(strName);
+	map<string, shared_ptr<PrototypeAST>>::iterator itProto= m_parseScope.prototypes.find( strName );
 	if( itProto != m_parseScope.prototypes.end() && *itProto->second != *pPrototype ) {
 		cerr << "Function prototype \"" << strName << "\" was already declared in scope with a different signature\n";
 		return false;
@@ -798,6 +789,23 @@ bool Parser::addPrototypeToScope( const shared_ptr<PrototypeAST>& pPrototype ) {
 	m_parseScope.prototypes[strName]= pPrototype;
 	return true;
 } // end Parser::addPrototypeToScope()
+
+
+//! Adds a type to the current scope. Returns false if the type
+//! already exists in scope
+bool Parser::addTypeToScope( const shared_ptr<const TypeAST>& pType ) {
+	// Lookup the type by name and fail if it exists
+	const string& strName= pType->GetName();
+	map<string, shared_ptr<const TypeAST>>::iterator itType= m_parseScope.types.find( strName );
+	if( itType != m_parseScope.types.end() ) {
+		cerr << "Type \"" + strName + "\" was already declared in scope\n";
+		return false;
+	} // end if type exists in scope
+
+	// Insert the type
+	m_parseScope.types[strName]= pType;
+	return true;
+} // end Parser::addTypeToScope()
 
 
 //! Sets that the function has been defined in scope. This should only
@@ -825,6 +833,15 @@ shared_ptr<PrototypeAST> Parser::findPrototypeInScope( const string& strName ) {
 	if( itProto == m_parseScope.prototypes.end() ) return NULL;
 	else return itProto->second;
 } // end Parser::findPrototypeInScope()
+
+
+//! Looks up a type in scope. Returns NULL if it does not exist,
+//! but does not give any error messages
+shared_ptr<const TypeAST> Parser::findTypeInScope( const string& strName ) {
+	map<string, shared_ptr<const TypeAST>>::iterator itType= m_parseScope.types.find( strName );
+	if( itType == m_parseScope.types.end() ) return NULL;
+	else return itType->second;
+} // end Parser::findTypeInScope()
 
 
 //! Returns whether the specified function is defined in scope. If this is called

@@ -8,6 +8,7 @@ using std::map;
 
 #include <memory>
 using std::shared_ptr; using std::unique_ptr;
+using std::dynamic_pointer_cast; using std::static_pointer_cast;
 
 #include <set>
 using std::set;

@@ -47,6 +47,27 @@ Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) cons
 
 
 Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	// Special-case assignments
+	if( m_binop == TOKEN_ASSIGN ) {
+		// Cast our LHS to a variable
+		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pLeft );
+		if( !pVariable ) return ErrorCodegen( "Left-hand side of assignment expression must be a variable" );
+
+		// Lookup the lhs
+		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
+		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating assignment expression" );
+
+		// Codegen the RHS
+		Value* pValue= m_pRight->Codegen( context, scope );
+		if( !pValue ) return ErrorCodegen( "Couldn't generate code for rhs in assignment expression" );
+
+		// Create the store instruction
+		context.GetBuilder().CreateStore( pValue, pAlloca );
+
+		// We return the variable as our value
+		return pVariable->Codegen( context, scope );
+	} // end if assignment
+
 	Value* pLeft= m_pLeft->Codegen( context, scope );
 	Value* pRight= m_pRight->Codegen( context, scope );
 	if( !pLeft || !pRight ) return ErrorCodegen( "Could not generate lhs and rhs for binary expression" );
@@ -236,20 +257,6 @@ void BlockAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 } // end BlockAST::Codegen()
 
 
-void AssignmentAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	// Lookup the lhs
-	AllocaInst* pAlloca= scope.LookupVariable( m_pLeft->GetName() );
-	if( !pAlloca ) { ErrorCodegen( string("Variable \"") + m_pLeft->GetName() + "\" does not exist while creating assignment expression" ); return; }
-
-	// Codegen the RHS
-	Value* pValue= m_pRight->Codegen( context, scope );
-	if( !pValue ) { ErrorCodegen( "Couldn't generate code for rhs in assignment expression" ); return; }
-
-	// Create the store instruction
-	context.GetBuilder().CreateStore( pValue, pAlloca );
-} // end AssignmentAST::Codegen()
-
-
 void ConditionalAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Generate code for evaluating the conditional
 	Value* pCond= m_pCondExpr->Codegen( context, scope );
@@ -289,6 +296,14 @@ void ConditionalAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	pFunction->getBasicBlockList().push_back( pMergeBlock );
 	context.GetBuilder().SetInsertPoint( pMergeBlock );
 } // end ConditionalAST::Codegen()
+
+
+void ExprStmtAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	Value* pValue= m_pExpr->Codegen( context, scope );
+	if( !pValue ) (void)ErrorCodegen( "Could not generate code for expression statement" );
+
+	return;
+} // end ExprStmtAST::Codegen()
 
 
 const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {

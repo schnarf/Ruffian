@@ -13,7 +13,7 @@ class VariableAST;
 class PrototypeAST {
 public:
 	//! Initialize with function name, return type, and argument list
-	PrototypeAST( const string& strName, const shared_ptr<TypeAST>& pReturnType, const vector<shared_ptr<DeclarationAST>>& pArgs ) : m_strName(strName), m_pReturnType(pReturnType), m_pArgs(pArgs) {}
+	PrototypeAST( const string& strName, const shared_ptr<const TypeAST>& pReturnType, const vector<shared_ptr<DeclarationAST>>& pArgs ) : m_strName(strName), m_pReturnType(pReturnType), m_pArgs(pArgs) {}
 
 	//! Returns our name
 	const string& GetName() const { return m_strName; }
@@ -30,7 +30,7 @@ public:
 	bool operator!=( const PrototypeAST& rhs ) const { return !(*this == rhs); }
 private:
 	string m_strName;
-	shared_ptr<TypeAST> m_pReturnType;
+	shared_ptr<const TypeAST> m_pReturnType;
 	vector<shared_ptr<DeclarationAST>> m_pArgs;
 }; // end class PrototypeAST
 

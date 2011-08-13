@@ -111,6 +111,7 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">common.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="StmtAST.cpp" />
+    <ClCompile Include="TypeAST.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AST.h" />

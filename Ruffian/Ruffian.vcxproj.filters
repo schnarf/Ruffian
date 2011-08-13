@@ -63,6 +63,9 @@
     <ClCompile Include="CodegenAST.cpp">
       <Filter>Source Files\Codegen</Filter>
     </ClCompile>
+    <ClCompile Include="TypeAST.cpp">
+      <Filter>Source Files\AST</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lexer.h">

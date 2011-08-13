@@ -2,7 +2,7 @@
 
 class Lexer;
 enum Token;
-class AssignmentAST; class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST;
+class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST;
 
 class Parser {
 public:
@@ -43,13 +43,11 @@ private:
 	//! Parses a return statement
 	shared_ptr<ReturnAST> parseReturnStatement();
 	//! Parses a variable declaration statement, with the type already parsed
-	shared_ptr<DeclarationAST> parseVariableDeclaration( const string& strTarget );
-	//! Parses an assignment expression, having already parsed the target's name
-	shared_ptr<AssignmentAST> parseAssignmentExpression( const string& strTarget );
+	shared_ptr<DeclarationAST> parseVariableDeclaration();
 	//! Parses a variable identifier
 	shared_ptr<VariableAST> parseVariable();
 	//! Parses a type identifier
-	shared_ptr<TypeAST> parseType();
+	shared_ptr<const TypeAST> parseType();
 	//! Parses a function call expression, having already parsed the function name
 	shared_ptr<CallAST> parseCallExpression( const string& strName );
 	//! Parses a numeric literal
@@ -66,6 +64,9 @@ private:
 	//! Adds a function prototype to the current scope. Returns false if the
 	//! prototype already exists in scope, but with a different signature
 	bool addPrototypeToScope( const shared_ptr<PrototypeAST>& pPrototype );
+	//! Adds a type to the current scope. Returns false if the type
+	//! already exists in scope
+	bool addTypeToScope( const shared_ptr<const TypeAST>& pType );
 	//! Sets that the function has been defined in scope. This should only
 	//! ever be called once per function.
 	void setFunctionDefinedInScope( const string& strName );
@@ -76,6 +77,9 @@ private:
 	//! Looks up a function prototype in scope. Returns NULL if it does not exist,
 	//! but does not give any error messages
 	shared_ptr<PrototypeAST> findPrototypeInScope( const string& strName );
+	//! Looks up a type in scope. Returns NULL if it does not exist,
+	//! but does not give any error messages
+	shared_ptr<const TypeAST> findTypeInScope( const string& strName );
 	//! Returns whether the specified function is defined in scope. If this is called
 	//! for a function that hasn't even been prototyped, also returns FALSE.
 	bool isFunctionDefinedInScope( const string& strName );
@@ -84,6 +88,7 @@ private:
 	struct ParseScope {
 		map<string, shared_ptr<DeclarationAST>> variables;	//!< Table of variable declarations
 		map<string, shared_ptr<PrototypeAST>> prototypes;	//!< Table of function prototypes
+		map<string, shared_ptr<const TypeAST>> types;		//!< Table of types
 		set<string> definedFunctions;						//!< Set of defined functions
 	}; // end struct ParseScope
 

@@ -22,6 +22,9 @@ inline const TypeAST& GetBinopType( Token binop, const TypeAST& l, const TypeAST
 		if( l.IsFloatingPoint() && r.IsSigned() ) return l;
 		// Otherwise, this is an invalid type
 		return TypeAST::GetError();
+	case TOKEN_ASSIGN:
+		// Even when casts are added, this will return the type of the LHS
+		return l;
 	case TOKEN_LT:
 	case TOKEN_GT:
 	case TOKEN_LE:
@@ -59,6 +62,7 @@ inline int GetBinopPrecedence( Token binop ) {
 	// Install our binary operator precedences
 	static map<Token, int> precedence;
 	if( precedence.empty() ) {
+		precedence[TOKEN_ASSIGN]= 2;
 		precedence[TOKEN_COMPARE]= 5;
 		precedence[TOKEN_LT]= precedence[TOKEN_GT]= precedence[TOKEN_LE]= precedence[TOKEN_GE]= 10;
 		precedence[TOKEN_PLUS]= precedence[TOKEN_MINUS]= 20;

@@ -29,7 +29,7 @@ private:
 class DeclarationAST : public StmtAST {
 public:
 	//! Initialize with variable name, type, and optional initializer expression
-	DeclarationAST( const string& strName, const shared_ptr<TypeAST>& pType, const shared_ptr<ExprAST>& pInitializer= NULL ) :
+	DeclarationAST( const string& strName, const shared_ptr<const TypeAST>& pType, const shared_ptr<ExprAST>& pInitializer= NULL ) :
 		m_strName(strName), m_pType(pType), m_pInitializer(pInitializer) {
 	} // end DeclarationAST()
 
@@ -41,21 +41,9 @@ public:
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	string m_strName;
-	shared_ptr<TypeAST> m_pType;
+	shared_ptr<const TypeAST> m_pType;
 	shared_ptr<ExprAST> m_pInitializer;
 }; // end class DeclarationAST
-
-
-class AssignmentAST : public StmtAST {
-public:
-	//! Initialize with lhs and rhs
-	AssignmentAST( const shared_ptr<VariableAST>& pLeft, const shared_ptr<ExprAST> pRight ) : m_pLeft(pLeft), m_pRight(pRight) {}
-
-	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
-private:
-	shared_ptr<VariableAST> m_pLeft;
-	shared_ptr<ExprAST> m_pRight;
-}; // end class AssignmentAST
 
 
 //! Block AST node, a list of statements
@@ -88,13 +76,14 @@ private:
 }; // end class ConditionalAST
 
 
-//! Call statement AST node (same as expression, discarding return value)
-class CallStmtAST : public StmtAST {
+//! Expression statement AST Node
+//! Just an expression with a semicolon after it
+class ExprStmtAST : public StmtAST {
 public:
-	//! Initialize with call expression
-	CallStmtAST( const shared_ptr<CallAST>& pCall ) : m_pCall(pCall) {}
+	//! Initialize with expression
+	ExprStmtAST( const shared_ptr<ExprAST>& pExpr ) : m_pExpr(pExpr) {}
 
-	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const { return (void)m_pCall->Codegen( context, scope ); }
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
-	shared_ptr<CallAST> m_pCall;
-}; // end CallStmtAST
+	shared_ptr<ExprAST> m_pExpr;
+}; // end class ExprStmtAST

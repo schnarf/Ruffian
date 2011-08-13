@@ -69,6 +69,7 @@ bool Lexer::IsBinopToken( Token token ) {
 	case TOKEN_GT:
 	case TOKEN_LE:
 	case TOKEN_GE:
+	case TOKEN_ASSIGN:
 		return true;
 	default:
 		return false;
