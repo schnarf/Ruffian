@@ -61,5 +61,9 @@ def main(int n) -> int {
 	printInt(42);
 	printInt(180);
 	printInt(factorial(14));
+	for( int i=0; i<8; i = i+1 ) {
+		printInt( factorial(i) );
+	}
+	for( int i=1; i<=10; i = i+1 ) printInt( fibonacci(n) );
 	return fibonacci(n);
 }

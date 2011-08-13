@@ -370,50 +370,70 @@ shared_ptr<BlockAST> Parser::parseBlock() {
 
 //! Parses a statement
 shared_ptr<StmtAST> Parser::parseStatement() {
-	/* statement
-		::= expression ';'
-		::= variable_declaration
-		::= return_stmt
+	/*
+	statement
+		::= primary_statement
+		::= return_statement
 		::= block
-		::= conditional_stmt
+		::= conditional_statement
+		::= for_statement
 	*/
 
 	switch( m_pLexer->GetCurrentToken() ) {
 	case TOKEN_RETURN: return parseReturnStatement();
-	case TOKEN_IDENTIFIER: {
-		// This is either a variable declaration statement or expression statement
-		// If the identifier is a type we recognize, then parse it as a variable
-		// declaration, otherwise try to parse an expression
-
-		if( findTypeInScope(m_pLexer->GetIdentifier()) ) {
-			// Parse this as a variable declaration
-			return parseVariableDeclaration();
-		} else {
-			// Parse this as an expression statement
-			shared_ptr<ExprAST> pExpr= parseExpression();
-			if( !pExpr ) {
-				cerr << "Could not parse expression while parsing statement\n";
-				return NULL;
-			} // end if could not parse
-
-			// We expect to eat a semicolon
-			if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
-				cerr << "Expected ';' after expression while parsing statement\n";
-				return NULL;
-			} // end if no semicolon
-			m_pLexer->GetNextToken();
-
-			// Return the statement expression
-			return shared_ptr<StmtAST>( new ExprStmtAST(pExpr) );
-		}
-	}
+	case TOKEN_IDENTIFIER: return parsePrimaryStatement();
 	case TOKEN_LBRACE: return parseBlock();
 	case TOKEN_IF: return parseConditionalStatement();
+	case TOKEN_FOR: return parseForStatement();
 	default:
 		cerr << "Expected a statement, found \"" + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) + "\"\n";
 		return NULL;
 	} // end switch current token
 } // end Parser::parseStatement()
+
+
+//! Parses a primary statement
+shared_ptr<PrimaryStmtAST> Parser::parsePrimaryStatement() {
+	// For now, it might be helpful to think of a primary statement as one that starts with an identifer
+
+	/*
+	primary_statement
+		::= expression ';'
+		::= variable_declaration
+	*/
+
+	// We expect an identifier
+	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
+		cerr << "Expected an identifier while parsing a primary statement\n";
+		return NULL;
+	} // end if no identifier
+
+	// This is either a variable declaration statement or expression statement
+	// If the identifier is a type we recognize, then parse it as a variable
+	// declaration, otherwise try to parse an expression
+
+	if( findTypeInScope(m_pLexer->GetIdentifier()) ) {
+		// Parse this as a variable declaration
+		return parseVariableDeclaration();
+	} else {
+		// Parse this as an expression statement
+		shared_ptr<ExprAST> pExpr= parseExpression();
+		if( !pExpr ) {
+			cerr << "Could not parse expression while parsing statement\n";
+			return NULL;
+		} // end if could not parse
+
+		// We expect to eat a semicolon
+		if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
+			cerr << "Expected ';' after expression while parsing statement\n";
+			return NULL;
+		} // end if no semicolon
+		m_pLexer->GetNextToken();
+
+		// Return the statement expression
+		return shared_ptr<PrimaryStmtAST>( new ExprStmtAST(pExpr) );
+	}
+} // end Parser::parsePrimaryStatement()
 
 
 //! Parses an expression
@@ -637,7 +657,8 @@ shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 
 //! Parses a numeric literal
 shared_ptr<LiteralAST> Parser::parseLiteral() {
-	/* literal
+	/*
+	literal
 		::= int_literal
 		::= float_literal
 		::= bool_literal
@@ -660,7 +681,8 @@ shared_ptr<LiteralAST> Parser::parseLiteral() {
 
 //! Parses a conditional statements
 shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
-	/* conditional_stmt
+	/*
+	conditional_statement
 		::= if '(' expression ')' block
 		::= conditional_stmt else conditional_stmt
 	*/
@@ -733,6 +755,78 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 
 	return shared_ptr<ConditionalAST>( new ConditionalAST(pCondExpr, pBlock, pElseBlock) );
 } // end Parser::parseConditionalStatement()
+
+
+//! Parses a for statement
+shared_ptr<ForAST> Parser::parseForStatement() {
+	/*
+	for_statement
+		::= 'for' '(' primary_statement expression ';' expression ')' statement
+	*/
+
+	// Start a new scope for any variable that might be declared in the initializer statement
+	ScopeSentry s_scope( this );
+	
+	// We expect "for"
+	if( m_pLexer->GetCurrentToken() != TOKEN_FOR ) {
+		cerr << "Expected \"for\" while parsing for statement\n";
+		return NULL;
+	} // end if no for
+	m_pLexer->GetNextToken();
+
+	// Now we expect a lparen
+	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
+		cerr << "Expected '(' after \"for\" while parsing for statement\n";
+		return NULL;
+	} // end if no lparen
+	m_pLexer->GetNextToken();
+
+	// Parse the initializer statement
+	shared_ptr<PrimaryStmtAST> pInitializer= parsePrimaryStatement();
+	if( !pInitializer ) {
+		cerr << "Could not parse initializer statement in for statement\n";
+		return NULL;
+	} // end if error
+
+	// Do not eat any semicolon, since it was parsed as part of the statement
+
+	// Parse the condition expression
+	shared_ptr<ExprAST> pCondition= parseExpression();
+	if( !pCondition ) {
+		cerr << "Could not parse condition expression in for statement\n";
+		return NULL;
+	} // end if error
+
+	// Eat the semicolon
+	if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
+		cerr << "Expected ';' after condition expression in for statement\n";
+		return NULL;
+	} // end if no semicolon
+	m_pLexer->GetNextToken();
+
+	// Parse the update expression
+	shared_ptr<ExprAST> pUpdate= parseExpression();
+	if( !pUpdate ) {
+		cerr << "Could not parse update expression in for statement\n";
+		return NULL;
+	} // end if error
+
+	// Eat the rparen
+	if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+		cerr << "Expected ')' after update expression in for statement\n";
+		return NULL;
+	} // end if no rparen
+	m_pLexer->GetNextToken();
+
+	// Parse the body statement
+	shared_ptr<StmtAST> pBody= parseStatement();
+	if( !pBody ) {
+		cerr << "Could not parse body in for statement\n";
+		return NULL;
+	} // end if error
+
+	return shared_ptr<ForAST>( new ForAST(pInitializer, pCondition, pUpdate, pBody) );
+} // end Parser::parseForStatement()
 
 
 //! Creates a numeric literal, given the type and its string representation

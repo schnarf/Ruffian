@@ -9,9 +9,6 @@
 - Resolve the issue with function definitions inside of functions. Either disallow them,
   or mangle the name so that there's no problem at codegen time
 - Work out and implement some implicit/explicit type conversions.
-- For loop
-- Think statements through. Should "expression ';'" be a valid statement? This will complicate the
-  parser. Function calls are now allowed as statements, so is there any need?
 - Consider not requiring "def". Does it add anything? Does the non-C-like syntax for functions
   add anything? It shouldn't be hard to change the parser, but let's think about the syntax.
 - Make Lexer::GetNextToken() return void, to prevent bugs

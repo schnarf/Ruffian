@@ -298,6 +298,10 @@ void ConditionalAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 } // end ConditionalAST::Codegen()
 
 
+void ForAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+} // end ForAST::Codegen()
+
+
 void ExprStmtAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	Value* pValue= m_pExpr->Codegen( context, scope );
 	if( !pValue ) (void)ErrorCodegen( "Could not generate code for expression statement" );

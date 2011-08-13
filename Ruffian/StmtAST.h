@@ -15,6 +15,11 @@ public:
 }; // end class StmtAST
 
 
+//! Primary statement AST node base class. This is either a variable declaration or expression
+class PrimaryStmtAST : public StmtAST {
+}; // end class PrimaryStmtAST
+
+
 class ReturnAST : public StmtAST {
 public:
 	//! Initialize with return expression
@@ -26,7 +31,7 @@ private:
 }; // end class ReturnAST
 
 
-class DeclarationAST : public StmtAST {
+class DeclarationAST : public PrimaryStmtAST {
 public:
 	//! Initialize with variable name, type, and optional initializer expression
 	DeclarationAST( const string& strName, const shared_ptr<const TypeAST>& pType, const shared_ptr<ExprAST>& pInitializer= NULL ) :
@@ -61,7 +66,7 @@ private:
 }; // end class BlockAST
 
 
-//! Conditional "if" AST Node
+//! Conditional "if" AST node
 class ConditionalAST : public StmtAST {
 public:
 	//! Initialize with condition, true block, and optional else block
@@ -76,9 +81,25 @@ private:
 }; // end class ConditionalAST
 
 
+//! For loop AST node
+class ForAST : public StmtAST {
+public:
+	//! Initialize with initializer statement, condition, and update expressions, plus the body statement
+	ForAST( const shared_ptr<PrimaryStmtAST>& pInitializer, const shared_ptr<ExprAST>& pCondition, const shared_ptr<ExprAST>& pUpdate, const shared_ptr<StmtAST>& pBody ) :
+		m_pInitializer(pInitializer), m_pCondition(pCondition), m_pUpdate(pUpdate), m_pBody(pBody) {}
+
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
+private:
+	shared_ptr<PrimaryStmtAST> m_pInitializer;
+	shared_ptr<ExprAST> m_pCondition,
+						m_pUpdate;
+	shared_ptr<StmtAST> m_pBody;
+}; // end class ForAST
+
+
 //! Expression statement AST Node
 //! Just an expression with a semicolon after it
-class ExprStmtAST : public StmtAST {
+class ExprStmtAST : public PrimaryStmtAST {
 public:
 	//! Initialize with expression
 	ExprStmtAST( const shared_ptr<ExprAST>& pExpr ) : m_pExpr(pExpr) {}
