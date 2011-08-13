@@ -13,3 +13,4 @@
   add anything? It shouldn't be hard to change the parser, but let's think about the syntax.
 - Make Lexer::GetNextToken() return void, to prevent bugs
 - Have StmtAST::Codegen return a bool indicating success or failure, and check it
+- POINTERS!
