@@ -1,16 +1,24 @@
-- Clean up error messages in lexer, parser, and codegen. Errors should also be emitted with
-  references to the line number and position where the error was encountered.
+Language Design
+==================================
+- POINTERS!
 - Consider changing the conditional statement definition. It may be simpler if it
   can take any statement, not just blocks. Maybe braces are nice though, to avoid
   the issue of shift-reduce conflicts.
-- Transform the AST or emit code differently so that it always satisfies llvm's rule
-  that basic blocks must be terminated in a branch/return. Right now there's just
-  a special-case for conditionals.
 - Resolve the issue with function definitions inside of functions. Either disallow them,
   or mangle the name so that there's no problem at codegen time
 - Work out and implement some implicit/explicit type conversions.
 - Consider not requiring "def". Does it add anything? Does the non-C-like syntax for functions
   add anything? It shouldn't be hard to change the parser, but let's think about the syntax.
+
+Compiler
+==================================
+- Clean up error messages in lexer, parser, and codegen. Errors should also be emitted with
+  references to the line number and position where the error was encountered.
+- Transform the AST or emit code differently so that it always satisfies llvm's rule
+  that basic blocks must be terminated in a branch/return. Right now there's just
+  a special-case for conditionals.
+
+Refactory
+==================================
 - Make Lexer::GetNextToken() return void, to prevent bugs
 - Have StmtAST::Codegen return a bool indicating success or failure, and check it
-- POINTERS!
