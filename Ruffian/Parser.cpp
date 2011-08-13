@@ -825,6 +825,13 @@ shared_ptr<ForAST> Parser::parseForStatement() {
 		return NULL;
 	} // end if error
 
+	// Check that the condition expression has type "bool"
+	// TODO: Check convertability once we add casting?
+	if( pCondition->GetType() != TypeAST::GetBool() ) {
+		cerr << "For statement condition expression must evaluate to bool\n";
+		return NULL;
+	} // end if non-bool condition
+
 	return shared_ptr<ForAST>( new ForAST(pInitializer, pCondition, pUpdate, pBody) );
 } // end Parser::parseForStatement()
 

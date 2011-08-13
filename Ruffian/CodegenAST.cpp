@@ -299,6 +299,49 @@ void ConditionalAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 
 
 void ForAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	/* Output this as:
+
+		initializer_statement
+		goto loop
+	loop:
+		body_statement
+		update_expression
+		endcond = condexpr
+		br endcond, loop, endloop
+	endloop:
+	*/
+
+	// Enter a new scope
+	CodegenScope::ScopeEnterSentry s_scope( scope );
+
+	// Emit the initializer expression
+	m_pInitializer->Codegen( context, scope );
+
+	// Make the new basic block for the loop header, inserting after current block
+	Function* pFunction= context.GetBuilder().GetInsertBlock()->getParent();
+	BasicBlock* pLoopBlock= BasicBlock::Create( getGlobalContext(), "loop", pFunction );
+
+	// Create an explicit fallthrough from the current block to the loop block
+	context.GetBuilder().CreateBr( pLoopBlock );
+
+	// Start insertion in the loop block
+	context.GetBuilder().SetInsertPoint( pLoopBlock );
+	
+	// Emit the body statement followed by the update expression
+	m_pBody->Codegen( context, scope );
+	Value* pUpdateValue= m_pUpdate->Codegen( context, scope );
+	if( !pUpdateValue ) return (void)ErrorCodegen( "Could not generate code in for loop update expression" );
+
+	// Compute the end condition
+	Value* pCondition= m_pCondition->Codegen( context, scope );
+	if( !pCondition ) return (void)ErrorCodegen( "could not generate code in for loop condition expression" );
+
+	// Create the end loop block and add the conditional branch to it
+	BasicBlock* pLoopEndBlock= BasicBlock::Create( getGlobalContext(), "endloop", pFunction );
+	context.GetBuilder().CreateCondBr( pCondition, pLoopBlock, pLoopEndBlock );
+
+	// Set the insert point for any additional code to the loop end block
+	context.GetBuilder().SetInsertPoint( pLoopEndBlock );
 } // end ForAST::Codegen()
 
 
