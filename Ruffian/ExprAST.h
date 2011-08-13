@@ -44,7 +44,7 @@ private:
 }; // end VariableAST
 
 
-//! Binary operator AST Node
+//! Binary operator AST node
 class BinopAST : public ExprAST {
 public:
 	//! Initialize with operator, LHS, and RHS
@@ -57,6 +57,34 @@ private:
 	shared_ptr<ExprAST> m_pLeft,
 	                    m_pRight;
 }; // end class BinopAST
+
+
+//! Prefix unary operator AST node
+class PrefixUnaryAST : public ExprAST {
+public:
+	//! Initialize with operator and operator
+	PrefixUnaryAST( Token op, const shared_ptr<ExprAST>& pExpr ) : m_op(op), m_pExpr(pExpr) {}
+
+	virtual const TypeAST& GetType() const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+private:
+	Token m_op;
+	shared_ptr<ExprAST> m_pExpr;
+}; // end class PrefixUnaryAST
+
+
+//! Postfix unary operator AST node
+class PostfixUnaryAST : public ExprAST {
+public:
+	//! Initialize with operator and operator
+	PostfixUnaryAST( Token op, const shared_ptr<ExprAST>& pExpr ) : m_op(op), m_pExpr(pExpr) {}
+
+	virtual const TypeAST& GetType() const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+private:
+	Token m_op;
+	shared_ptr<ExprAST> m_pExpr;
+}; // end class PostfixUnaryAST
 
 
 //! Integer literal AST node

@@ -110,6 +110,9 @@
     <ClInclude Include="CodegenContext.h">
       <Filter>Header Files\Codegen</Filter>
     </ClInclude>
+    <ClInclude Include="SemUnaryOp.h">
+      <Filter>Header Files\Sem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.txt">

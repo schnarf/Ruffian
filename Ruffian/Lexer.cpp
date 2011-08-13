@@ -37,9 +37,11 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_STAR: return "*";
 	case TOKEN_SLASH: return "/";
 	case TOKEN_ASSIGN: return "=";
-	case TOKEN_COMPARE: return "==";
 	case TOKEN_INCREMENT: return "++";
 	case TOKEN_DECREMENT: return "--";
+	case TOKEN_NOT: return "!";
+	case TOKEN_EQ: return "==";
+	case TOKEN_NEQ: return "!=";
 	case TOKEN_LT: return "<";
 	case TOKEN_GT: return ">";
 	case TOKEN_LE: return "<=";
@@ -67,7 +69,8 @@ bool Lexer::IsBinopToken( Token token ) {
 	case TOKEN_MINUS:
 	case TOKEN_STAR:
 	case TOKEN_SLASH:
-	case TOKEN_COMPARE:
+	case TOKEN_EQ:
+	case TOKEN_NEQ:
 	case TOKEN_LT:
 	case TOKEN_GT:
 	case TOKEN_LE:
@@ -78,6 +81,31 @@ bool Lexer::IsBinopToken( Token token ) {
 		return false;
 	} // end switch token
 } // end Lexer::IsBinopToken()
+
+
+//! Returns whether the current token is a prefix unary operator
+bool Lexer::IsPreUnaryOpToken( Token token ) {
+	switch( token ) {
+	case TOKEN_INCREMENT:
+	case TOKEN_DECREMENT:
+	case TOKEN_NOT:
+		return true;
+	default:
+		return false;
+	} // end switch token
+} // end Lexer::IsPreUnaryOpToken()
+
+
+//! Returns whether the current token is a postfix unary operator
+bool Lexer::IsPostUnaryOpToken( Token token ) {
+	switch( token ) {
+	case TOKEN_INCREMENT:
+	case TOKEN_DECREMENT:
+		return true;
+	default:
+		return false;
+	} // end switch token
+} // end Lexer::IsPostUnaryOpToken()
 
 //! Gets the next token
 Token Lexer::getTok() {
@@ -177,9 +205,15 @@ Token Lexer::getTok() {
 		else { token= TOKEN_GT; bEatChar= false; }
 		break;
 	case '=':
-		if( readChar() == '=' ) { token= TOKEN_COMPARE; bEatChar= true; }
+		if( readChar() == '=' ) { token= TOKEN_EQ; bEatChar= true; }
 		else { token= TOKEN_ASSIGN; bEatChar= false; }
 		break;
+	case '!': {
+		char nextChar= readChar();
+		if( nextChar == '=' ) { token= TOKEN_NEQ; bEatChar= true; }
+		else { token= TOKEN_NOT; bEatChar= false; }
+		break;
+	}
 	case EOF: return TOKEN_EOF;
 	default:
 		bSymbol= false;

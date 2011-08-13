@@ -126,6 +126,7 @@
     <ClInclude Include="Parser.h" />
     <ClInclude Include="SemBinop.h" />
     <ClInclude Include="SemScope.h" />
+    <ClInclude Include="SemUnaryOp.h" />
     <ClInclude Include="StmtAST.h" />
     <ClInclude Include="TypeAST.h" />
   </ItemGroup>

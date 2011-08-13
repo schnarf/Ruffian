@@ -93,10 +93,14 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 			return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
 	
 		// For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
-	case TOKEN_COMPARE:
+	case TOKEN_EQ:
 		return m_pLeft->GetType().IsIntegral()
 			? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
+	case TOKEN_NEQ:
+		return m_pLeft->GetType().IsIntegral()
+			? context.GetBuilder().CreateICmpNE( pLeft, pRight, "cmptmp" )
+			: context.GetBuilder().CreateFCmpUNE( pLeft, pRight, "cmptmp" );
 	case TOKEN_LT:
 		return m_pLeft->GetType().IsIntegral()
 			? context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
@@ -117,6 +121,123 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		return ErrorCodegen( string("Unhandled binary operator '") + Lexer::StringifyToken(m_binop) + "' for binary expression" );
 	} // end switch binop
 } // end BinopAST::Codegen()
+
+
+Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	// Emit code for the operand
+	Value* pOp= m_pExpr->Codegen( context, scope );
+	if( !pOp ) return ErrorCodegen( "Could not emit code for unary prefix operand" );
+
+	switch( m_op ) {
+	case TOKEN_NOT:
+		// We require a bool type
+		if( m_pExpr->GetType() != TypeAST::GetBool() ) return ErrorCodegen( "Unary ! requires a boolean operand" );
+		return context.GetBuilder().CreateNot( pOp, "nottmp" );
+
+	case TOKEN_INCREMENT: {
+		// We require an integer type
+		if( !m_pExpr->GetType().IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
+
+		// Cast our operand to a variable
+		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
+		if( !pVariable ) return ErrorCodegen( "Operand of postfix increment must be a variable" );
+
+		// Lookup the lhs
+		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
+		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix increment" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+
+		// Create the assignment
+		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()) );
+		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
+
+		// Emit the store
+		context.GetBuilder().CreateStore( pValue, pAlloca );
+		// Return the value
+		return pValue;
+	}
+
+	case TOKEN_DECREMENT: {
+		// We require a signed integer type
+		if( !m_pExpr->GetType().IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
+		
+		// Cast our operand to a variable
+		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
+		if( !pVariable ) return ErrorCodegen( "Operand of postfix decrement must be a variable" );
+
+		// Lookup the lhs
+		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
+		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix decrement" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+
+		// Create the assignment
+		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()));
+		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
+
+		// Emit the store
+		context.GetBuilder().CreateStore( pValue, pAlloca );
+		// Return the value
+		return pValue;
+	}
+	
+	default:
+		return ErrorCodegen( string("Unhandled prefix unary operator '") + Lexer::StringifyToken(m_op) + "' for unary expression" );
+	}
+} // end PrefixUnaryAST::Codegen()
+
+
+Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	switch( m_op ) {
+	case TOKEN_INCREMENT: {
+		// We require an integer type
+		if( !m_pExpr->GetType().IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
+
+		// Cast our operand to a variable
+		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
+		if( !pVariable ) return ErrorCodegen( "Operand of postfix increment must be a variable" );
+
+		// Lookup the lhs
+		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
+		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix increment" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+
+		// Create the assignment
+		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()) );
+		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
+
+		// Emit the store
+		context.GetBuilder().CreateStore( pValue, pAlloca );
+		// Return the original value
+		return pLoad;
+	}
+
+	case TOKEN_DECREMENT: {
+		// We require a signed integer type
+		if( !m_pExpr->GetType().IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
+		
+		// Cast our operand to a variable
+		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
+		if( !pVariable ) return ErrorCodegen( "Operand of postfix decrement must be a variable" );
+
+		// Lookup the lhs
+		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
+		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix decrement" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+
+		// Create the assignment
+		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()));
+		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
+
+		// Emit the store
+		context.GetBuilder().CreateStore( pValue, pAlloca );
+		// Return the original value
+		return pLoad;
+	}
+
+	default:
+		return ErrorCodegen( string("Unhandled prefix unary operator '") + Lexer::StringifyToken(m_op) + "' for unary expression" );
+	}
+} // end PostfixUnaryAST::Codegen()
 
 
 Value* CallAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {

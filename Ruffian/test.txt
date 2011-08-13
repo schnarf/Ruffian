@@ -56,16 +56,30 @@ def operator_precedence(int x, int y) -> int {
 }
 
 def printInt(int n) -> void;
+def printNewline() -> void;
 
 def main(int n) -> int {
-	printInt(42);
-	printInt(180);
-	printInt(factorial(14));
-	for( int i=0; i<8; i = i+1 ) {
-		printInt( factorial(i) );
-	}
-
-	for( int i=1; i<=10; i = i+1 ) printInt( fibonacci(i) );
+	for( int i=1; i<=10; i++ ) printInt( fibonacci(i) );
+	printNewline();
 	
+	for( int i=1; i<=10; ++i ) printInt( fibonacci(i) );
+	printNewline();
+
+	for( int i=10; i>0; i-- ) printInt( fibonacci(i) );
+	printNewline();
+
+	for( int i=10; i>0; --i ) printInt( fibonacci(i) );
+	printNewline();
+
+	int i=0;
+	printInt( i++ );
+	printInt( i++ );
+	printInt( ++i );
+	printInt( ++i );
+	printInt( i-- );
+	printInt( i-- );
+	printInt( --i );
+	printInt( --i );
+
 	return fibonacci(n);
 }

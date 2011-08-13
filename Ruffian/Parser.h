@@ -28,6 +28,9 @@ private:
 	//! Parses a parenthesized expression
 	shared_ptr<ExprAST> parseParenExpression();
 
+	//! Parses a unary operator expression
+	shared_ptr<ExprAST> parseUnaryOpExpression();
+
 	//! Parses the right-hand side of a binary expression, given the left-hand side and its highest-precedence operator
 	shared_ptr<ExprAST> parseBinopRHS( int precedence, shared_ptr<ExprAST> pLeft );
 

@@ -29,7 +29,8 @@ inline const TypeAST& GetBinopType( Token binop, const TypeAST& l, const TypeAST
 	case TOKEN_GT:
 	case TOKEN_LE:
 	case TOKEN_GE:
-	case TOKEN_COMPARE:
+	case TOKEN_NEQ:
+	case TOKEN_EQ:
 		// These comparison operators all give a bool
 		return TypeAST::GetBool();
 	default:
@@ -47,7 +48,8 @@ inline bool IsComparisonBinop( Token binop ) {
 	case TOKEN_GT:
 	case TOKEN_LE:
 	case TOKEN_GE:
-	case TOKEN_COMPARE:
+	case TOKEN_EQ:
+	case TOKEN_NEQ:
 		return true;
 	default:
 		return false;
@@ -63,7 +65,7 @@ inline int GetBinopPrecedence( Token binop ) {
 	static map<Token, int> precedence;
 	if( precedence.empty() ) {
 		precedence[TOKEN_ASSIGN]= 2;
-		precedence[TOKEN_COMPARE]= 5;
+		precedence[TOKEN_EQ]= precedence[TOKEN_NEQ]= 5;
 		precedence[TOKEN_LT]= precedence[TOKEN_GT]= precedence[TOKEN_LE]= precedence[TOKEN_GE]= 10;
 		precedence[TOKEN_PLUS]= precedence[TOKEN_MINUS]= 20;
 		precedence[TOKEN_STAR]= precedence[TOKEN_SLASH]= 30;

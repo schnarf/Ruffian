@@ -149,6 +149,68 @@ shared_ptr<ExprAST> Parser::parseParenExpression() {
 } // end Parser::parseParenExpression()
 
 
+//! Parses a unary operator expression
+shared_ptr<ExprAST> Parser::parseUnaryOpExpression() {
+	/*
+	unary_op_expr
+		::= primary_expression
+		::= pre_unary_op unary_op_expr
+		::= unary_op_expr post_unary_op
+	*/
+
+	// Check for a prefix unary operator
+	if( Lexer::IsPreUnaryOpToken(m_pLexer->GetCurrentToken()) ) {
+		// Store and eat the token
+		Token op= m_pLexer->GetCurrentToken();
+		m_pLexer->GetNextToken();
+
+		// Parse the following unary op expression
+		shared_ptr<ExprAST> pExpr= parseUnaryOpExpression();
+		if( !pExpr ) {
+			cerr << "Could not parse unary op expression after prefix unary operator\n";
+			return NULL;
+		} // end if parse error
+
+		// Increment and decrement require a variable operand for now
+		if( (op == TOKEN_INCREMENT || op == TOKEN_DECREMENT) && !dynamic_pointer_cast<VariableAST>(pExpr) ) {
+			cerr << "Prefix increment and decrement require a variable operand\n";
+			return NULL;
+		} // end if not variable
+
+		// Create and return the AST node
+		return shared_ptr<ExprAST>( new PrefixUnaryAST(op, pExpr) );
+	} // end if prefix operator
+
+	// If we don't have a prefix operator, then we have either a primary expression,
+	// or a unary op expr that starts with a primary expression. First parse the
+	// primary expression
+	shared_ptr<ExprAST> pPrimaryExpr= parsePrimaryExpression();
+	if( !pPrimaryExpr ) {
+		cerr << "Expected a primary expression while parsing a unary op expression\n";
+		return NULL;
+	} // end if parse error
+
+	// Now, if we have a postfix unary operator token, create the AST node,
+	// or otherwise just return the primary expression we parsed
+	if( Lexer::IsPostUnaryOpToken(m_pLexer->GetCurrentToken()) ) {
+		// Store and eat the token
+		Token op= m_pLexer->GetCurrentToken();
+		m_pLexer->GetNextToken();
+
+		// Increment and decrement require a variable operand for now
+		if( (op == TOKEN_INCREMENT || op == TOKEN_DECREMENT) && !dynamic_pointer_cast<VariableAST>(pPrimaryExpr) ) {
+			cerr << "Postfix increment and decrement require a variable operand\n";
+			return NULL;
+		} // end if not variable
+
+		return shared_ptr<ExprAST>( new PostfixUnaryAST(op, pPrimaryExpr) );
+	} // end if postfix unary operator
+
+	// If we got here, it's just a primary expression
+	return pPrimaryExpr;
+} // end Parser::parseUnaryOpExpression()
+
+
 //! Parses the right-hand side of a binary expression, given the left-hand side and its highest-precedence operator
 shared_ptr<ExprAST> Parser::parseBinopRHS( int precedence, shared_ptr<ExprAST> pLeft ) {
 	while( 1 ) {
@@ -162,8 +224,8 @@ shared_ptr<ExprAST> Parser::parseBinopRHS( int precedence, shared_ptr<ExprAST> p
 		Token binop= m_pLexer->GetCurrentToken();
 		m_pLexer->GetNextToken();
 
-		// Parse the primary expression after the binop
-		shared_ptr<ExprAST> pRight= parsePrimaryExpression();
+		// Parse the unary op expression after the binop
+		shared_ptr<ExprAST> pRight= parseUnaryOpExpression();
 		if( !pRight ) {
 			cerr << "Could not parse primary expression for binop rhs\n";
 			return NULL;
@@ -440,13 +502,13 @@ shared_ptr<PrimaryStmtAST> Parser::parsePrimaryStatement() {
 shared_ptr<ExprAST> Parser::parseExpression() {
 	/*
 	expression
-		::= primary_expr binoprhs
+		::= unary_op_expr binoprhs
 	*/
 
 	// Parse the LHS
-	shared_ptr<ExprAST> pLeft= parsePrimaryExpression();
+	shared_ptr<ExprAST> pLeft= parseUnaryOpExpression();
 	if( !pLeft ) {
-		cerr << "Could not parse primary expression for expression\n";
+		cerr << "Could not parse unary op expression for expression\n";
 		return NULL;
 	} // end if error
 	

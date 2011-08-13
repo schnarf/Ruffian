@@ -11,6 +11,10 @@ static void printInt( int64 i ) {
 	cout << i << endl;
 } // end printInt()
 
+static void printNewline() {
+	cout << endl;
+} // end printNewline()
+
 int main( int argc, char* argv[] ) {
 
 	llvm::InitializeNativeTarget();
@@ -48,6 +52,13 @@ int main( int argc, char* argv[] ) {
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
 		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printInt", pCodegen->GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printInt", (void*)printInt );
+	}
+
+	{
+		vector<const llvm::Type*> pArgTypes;
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printNewline", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "printNewline", (void*)printNewline );
 	}
 
 	bool bCodegenSuccess= pCodegen->Run( pModule );
