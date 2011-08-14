@@ -55,10 +55,10 @@ def operator_precedence(int x, int y) -> int {
 	return b;
 }
 
-def printInt(int n) -> void;
-def printFloat(float f) -> void;
-def printDouble(double f) -> void;
-def printNewline() -> void;
+def printInt(int n);
+def printFloat(float f);
+def printDouble(double f);
+def printNewline();
 
 def main(int n) -> int {
 	double d= 3.4;

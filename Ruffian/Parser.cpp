@@ -367,20 +367,24 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_RPAREN );
 	m_pLexer->GetNextToken();
 
-	// Eat the '->' before the return type
-	if( m_pLexer->GetCurrentToken() != TOKEN_ARROW ) {
-		cerr << "Expected '->' while parsing function definition\n";
-		return null_ret;
-	} // end if no arrow
-	m_pLexer->GetNextToken();
-	
-	// Parse the return type
-	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-		cerr << "Expected a typename while parsing function return type\n";
-		return null_ret;
-	} // end if no identifier
-	
-	shared_ptr<const TypeAST> pReturnType( parseType() );
+	// We allow functions to indicate that they return no type by simply
+	// omitting the arrow and type. Therefore, we can have either an arrow,
+	// semicolon, or brace
+	shared_ptr<const TypeAST> pReturnType= TypeAST::GetVoid();
+
+	// If we have an arrow, parse the return type
+	if( m_pLexer->GetCurrentToken() == TOKEN_ARROW ) {
+		// Eat the arrow
+		m_pLexer->GetNextToken();
+
+		// Parse the return type
+		if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
+			cerr << "Expected a typename while parsing function return type\n";
+			return null_ret;
+		} // end if no identifier
+
+		pReturnType= parseType();
+	} // end if return type specified
 
 	// Now lookup the prototype, and create it if it does not exist
 	shared_ptr<PrototypeAST> pPrototype= findPrototypeInScope( strName );
