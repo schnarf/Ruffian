@@ -2,7 +2,7 @@
 
 class Lexer;
 enum Token;
-class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST; class ForAST; class PrimaryStmtAST;
+class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST; class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class PrototypeAST; class ModuleAST; class ForAST; class PrimaryStmtAST; class CastAST;
 
 class Parser {
 public:
@@ -55,6 +55,8 @@ private:
 	shared_ptr<const TypeAST> parseType();
 	//! Parses a function call expression, having already parsed the function name
 	shared_ptr<CallAST> parseCallExpression( const string& strName );
+	//! Parses a cast expression having already parsed the type name
+	shared_ptr<CastAST> parseCastExpression( const string& strType );
 	//! Parses a numeric literal
 	shared_ptr<LiteralAST> parseLiteral();
 	//! Parses a conditional statement

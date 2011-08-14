@@ -78,6 +78,8 @@ def main(int n) -> int {
 
 	printDouble( d2 * f );
 	printFloat( d2 );
+	printDouble( float(2.3) );
+	printDouble( double(f) );
 
 	return fibonacci(n);
 }

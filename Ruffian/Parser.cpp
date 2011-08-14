@@ -99,14 +99,19 @@ shared_ptr<ExprAST> Parser::parseIdentifierExpression() {
 	identifier_expr
 		::= identifier
 		::= call_expr
+		::= cast_expr
 	*/
 
-	// This is a variable or a function call. Determine this by whether the next token is a lparen.
+	// This is a variable, or a cast/function call. Determine this by whether the next token is a lparen.
 	const string& strName= m_pLexer->GetIdentifier();
 	m_pLexer->GetNextToken();
 
 	// If this is a function call, parse the call expression and return it
-	if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) return parseCallExpression( strName );
+	// If the identifier is a type, then treat this as a cast, otherwise, treat it as a function call
+	if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
+		if( findTypeInScope(strName) ) return parseCastExpression( strName );
+		else return parseCallExpression( strName );
+	} // end if lparen
 
 	// If we're here, this is a variable reference
 	// Look up the declaration, and give an error if it hasn't been declared
@@ -758,7 +763,38 @@ shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 	} // end for argument
 	
 	return shared_ptr<CallAST>( new CallAST(pPrototype, pArgs) );
-} // end parseCallExpression()
+} // end Parser::parseCallExpression()
+
+
+//! Parses a cast expression having already parsed the type name
+shared_ptr<CastAST> Parser::parseCastExpression( const string& strType ) {
+	/*
+	cast_expr
+		::= identifier paren_expr
+	*/
+
+	// Look up the type
+	shared_ptr<const TypeAST> pType= findTypeInScope( strType );
+	if( !pType ) {
+		cerr << "Type \"" + strType + "\" was not declared in the current scope while parsing a cast expression\n";
+		return NULL;
+	} // end if type not found
+
+	// Now parse the paren expression
+	shared_ptr<ExprAST> pExpr= parseParenExpression();
+	if( !pExpr ) {
+		cerr << "Expected parenthesized expression while parsing cast expression\n";
+		return NULL;
+	} // end if parse error
+
+	// TODO: Check if the cast is valid
+	if( *pType == *TypeAST::GetVoid() ) {
+		cerr << "Cannot cast to void type\n";
+		return NULL;
+	} // end if void
+
+	return shared_ptr<CastAST>( new CastAST(pExpr, pType) );
+} // end Parser::parseCastExpression()
 
 
 //! Parses a numeric literal
