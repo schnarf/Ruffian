@@ -17,6 +17,8 @@ Compiler
 - Transform the AST or emit code differently so that it always satisfies llvm's rule
   that basic blocks must be terminated in a branch/return. Right now there's just
   a special-case for conditionals.
+ - Add overflow checking for implicit conversions of constants. This is something
+   in the language spec that's not implemented.
 
 Refactory
 ==================================

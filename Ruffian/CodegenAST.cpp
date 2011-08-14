@@ -145,6 +145,13 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		if( m_pExpr->GetType() != TypeAST::GetBool() ) return ErrorCodegen( "Unary ! requires a boolean operand" );
 		return context.GetBuilder().CreateNot( pOp, "nottmp" );
 
+	case TOKEN_MINUS:
+		// Unary negation operator. We require an arithmetic type
+		if( !m_pExpr->GetType()->IsArithmetic() ) return ErrorCodegen( "Unary - requires arithmetic operand" );
+		return m_pExpr->GetType()->IsIntegral()
+			? context.GetBuilder().CreateNeg( pOp, "negtmp" )
+			: context.GetBuilder().CreateFNeg( pOp, "negtmp" );
+
 	case TOKEN_INCREMENT: {
 		// We require an integer type
 		if( !m_pExpr->GetType()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );

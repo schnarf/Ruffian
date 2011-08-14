@@ -88,6 +88,7 @@ bool Lexer::IsPreUnaryOpToken( Token token ) {
 	case TOKEN_INCREMENT:
 	case TOKEN_DECREMENT:
 	case TOKEN_NOT:
+	case TOKEN_MINUS:
 		return true;
 	default:
 		return false;
@@ -130,7 +131,7 @@ Token Lexer::getTok() {
 		else if( m_strIdentifier == "true" || m_strIdentifier == "false" ) { m_strLiteral= m_strIdentifier; return TOKEN_LITERAL_BOOL; }
 		else return TOKEN_IDENTIFIER;
 	} // end if starts with alphabetic character
-
+	
 	// Check for a numeric literal
 	if( isdigit(m_lastChar) || m_lastChar == '.' ) {
 		string strNum;
@@ -140,21 +141,52 @@ Token Lexer::getTok() {
 			readChar();
 		} // end while reading numeric literal
 
+		// Check for 'e'. If we find it, that means this is a floating-point literal,
+		// and we should parse an integer immediately after the 'e'
+		bool bHasExponent= false;
+		if( m_lastChar == 'e' ) {
+			strNum+= 'e';
+			bHasExponent= true;
+			readChar();
+			
+			// We expect a digit or '-'
+			if( isdigit(m_lastChar) || m_lastChar == '-' ) {
+				strNum+= m_lastChar;
+				readChar();
+			} else {
+				cerr << "Expected digit or '-' after 'e' while parsing numeric literal\n";
+				return TOKEN_UNKNOWN;
+			}
+
+			// Now keep parsing until we hit a character that is not a digit
+			while( isdigit(m_lastChar) ) {
+				strNum+= m_lastChar;
+				readChar();
+			} // end while reading digit
+
+		} // end if exponent specified
+
 		// Store the literal
 		m_strLiteral= strNum;
 
 		// Try to determine if it's an integer or floating-point literal, or if it's malformed
 		uint nDecimalPoints= 0;
 		for( string::const_iterator itChar=strNum.begin(); itChar!=strNum.end(); ++itChar ) { if( *itChar == '.' ) ++nDecimalPoints; }
+		if( nDecimalPoints > 1 ) {
+			cerr << "Could not parse numeric literal \"" << strNum << "\", expected fewer decimal points\n";
+			return TOKEN_UNKNOWN;
+		} // end if too many decimals
+
+		// If we have an exponent, force this to floating point
+		if( bHasExponent ) return TOKEN_LITERAL_FLOAT;
+
+		// Otherwise choose between integer and float based on whether it has a decimal point
 		if( nDecimalPoints == 0 ) {
 			// Integer
 			return TOKEN_LITERAL_INT;
 		} else if( nDecimalPoints == 1 ) {
 			// Float
 			return TOKEN_LITERAL_FLOAT;
-		} else {
-			cerr << "Could not parse numeric literal \"" << strNum << "\", expected fewer decimal points\n";
-			return TOKEN_UNKNOWN;
 		}
 	} // end if numeric literal
 

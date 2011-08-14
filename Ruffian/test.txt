@@ -77,7 +77,7 @@ def main(int n) -> int {
 	printNewline();
 
 	printDouble( d2 * f );
-	printFloat( d2 );
+	printFloat( float(d2) );
 	printDouble( float(2.3) );
 	printDouble( double(f) );
 
@@ -88,6 +88,15 @@ def main(int n) -> int {
 	printFloat( float(int(true)) );
 	printInt( int(true) );
 	printInt( int(false) );
+
+	int a= -2;
+	uint b= 4;
+	float c= 5;
+	double e= 8;
+	float g= 292030.0283912389123;
+	double h= 1e300;
+	printDouble( h );
+	printFloat( float(h) );
 
 	return fibonacci(n);
 }
