@@ -1,0 +1,81 @@
+Currently the explicit cast operator exists as a C-style function cast, i.e. int(5.4).
+Conversion is possible between float and double, within integer types, between integer types
+and bool, and between floating point and integral types.
+
+
+Implicit Casts
+==================================
+Right now the idea is to have implicit casts not do anything surprising.
+
+For now, I've chosen to avoid implicit casts between signed and unsigned types. Integral
+types can only be implicitly converted to type with the same size or larger size, with
+the same signedness. This will undoubtedly lead to code that is less terse. It might be
+a good thing though. Lots of people pay attention to C compiler warnings about comparisons
+between signed/unsigned types, and will add the explicit cast anyway. Narrowing can also
+be dangerous, so this will at least make it apparent what's going on, causing the programmer
+to maybe think it through a little more about either checking the safety, or reconsidering
+mixing the different types.
+
+I have also chosen to allow float -> double, but to disallow the reverse, because
+overflow could result in an infinity popping up unexpectedly. Again, having the explicit
+cast be required will encourage the programmer to think it through and maybe range check
+or see if it's necessary to be mixing float and double.
+
+So, for expressions, we allow implicit conversion of any integral type to an integral type
+of the same signedness that has at least the same size. We allow implicit conversion from
+float to double. We do not allow implicit conversion of floating point types to
+integral types. Neither float nor double can hold all 64-bit integers, and float cannot
+hold all 32-bit integers.
+
+The one complication here is with numeric literals. The following declarations should
+all be possible without any explicit casting (not a complete listing):
+int a= 5;
+int a= -5;
+uint a= 5;
+char a= -5;
+float a= -5;
+double a= 1e300;
+
+However, these shouldn't be:
+char a= 2000;
+uint a= -5;
+float a= 1e300;
+
+My hope is to make this be the case. I think it shouldn't be unpredictable. Basically,
+implicit casts will occur from a numeric constant to another type *only* when no overflow
+will occur. Note that I'm not worrying about loss of precision with implicit double to
+float conversion, for now.
+
+This means the compiler is going to have to do constant folding, which it should do anyway.
+Nothing fancy is required. Constant folding will be done, and then if, say, a binary operator
+has two operands of different type, and one of them is a constant, it can be checked for safety,
+and an implicit cast can be created if it's safe, otherwise it will be a compiler error.
+Internally, let's say constant folding is done at the highest precision possible, using
+llvm's arbitrary precision types. For this purpose, let's only call something a constant
+if it's actually a literal expression. For example, "5 + 0*x" is not considered a constant,
+even though it is always equal to 5.
+
+So, the rule for constants is to allow conversions between integral types as long as
+there is no overflow (i.e. short(8) -> char is fine, but short(2000) -> char is not),
+and to allow conversion between floating point types as long as there is no overflow
+(i.e. double(1e30) -> float is fine, but double(1e300) -> float is not). We also allow
+conversion of integer constants to floating point constants, as long as there is no overflow.
+This is in addition to the normal rules that allow conversion from an integer to another
+integer of the same signedness and between floating point types.
+
+Note the rules for constants have to take precedence over other rules. For example:
+
+	def factorial ( int n ) -> int {
+		if( n == 0 ) { return 1; }
+		return n * factorial(n - 1);
+	}
+
+The "n-1" expression in the call to factorial should have type int. The integer
+literal "1" has type long. The constant implicit conversion rule should come first,
+to say that long(1) can safely be converted to int, because there's no overflow.
+
+Implicit casts will occur:
+- In the arguments to a function call
+- Jointly to the operands of a binary operator
+- In a return statement, to the function's return type
+- To a variable declaration's initializer expression

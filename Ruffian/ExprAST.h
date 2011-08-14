@@ -18,11 +18,19 @@ public:
 	virtual const shared_ptr<const TypeAST>& GetType() const= 0;
 	//! Generates code to evaluate the value of this expression
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const= 0;
+
+	//! Returns whether this is a constant value. We can't prove whether
+	//! an arbitrary expression is constant, so we consider an expression
+	//! to be constant if it's made up entirely of literals and operators.
+	virtual bool IsConstant() const { return false; }
+
 }; // end class ExprAST
 
 
 //! Literal value AST node abstract base
 class LiteralAST : public ExprAST {
+public:
+	virtual bool IsConstant() const { return true; }
 }; // end class LiteralAST
 
 
@@ -52,6 +60,7 @@ public:
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual bool IsConstant() const { return m_pLeft->IsConstant() && m_pRight->IsConstant(); }
 private:
 	Token m_binop;
 	shared_ptr<ExprAST> m_pLeft,
@@ -67,6 +76,7 @@ public:
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual bool IsConstant() const { return m_pExpr->IsConstant(); }
 private:
 	Token m_op;
 	shared_ptr<ExprAST> m_pExpr;
@@ -81,6 +91,7 @@ public:
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual bool IsConstant() const { return m_pExpr->IsConstant(); }
 private:
 	Token m_op;
 	shared_ptr<ExprAST> m_pExpr;
@@ -94,9 +105,14 @@ public:
 	IntegerAST( const string& strValue ) : m_apValue(64, strValue, 10) {}
 	//! Initialize with signed integer value
 	IntegerAST( int64 iValue ) : m_apValue(64, iValue, true) {}
+	//! Initialize with llvm arbitrary precision value
+	IntegerAST( const llvm::APInt& apValue ) : m_apValue(apValue) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+
+	//! Returns our value
+	const llvm::APInt& GetValue() const { return m_apValue; }
 private:
 	llvm::APInt m_apValue;
 }; // end class IntegerAST
@@ -109,9 +125,14 @@ public:
 	DoubleAST( const string& strValue ) : m_apValue(llvm::APFloat::IEEEdouble, strValue) {}
 	//! Initialize with value
 	DoubleAST( double fValue ) : m_apValue(fValue) {}
+	//! Initialize with llvm arbitrary precision value
+	DoubleAST( const llvm::APFloat& apValue ) : m_apValue(apValue) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+
+	//! Returns our value
+	const llvm::APFloat& GetValue() const { return m_apValue; }
 private:
 	llvm::APFloat m_apValue;
 }; // end class DoubleAST
@@ -158,6 +179,7 @@ public:
 
 	virtual const shared_ptr<const TypeAST>& GetType() const { return m_pType; }
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual bool IsConstant() const { return m_pExpr->IsConstant(); }
 private:
 	shared_ptr<ExprAST> m_pExpr;
 	shared_ptr<const TypeAST> m_pType;

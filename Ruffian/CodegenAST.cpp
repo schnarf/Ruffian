@@ -74,7 +74,7 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 	// If this is a comparison binop, check that the two operands do not have the same type
 	// TODO: Check this at semantic analysis time
-	if( IsComparisonBinop(m_binop) && m_pLeft->GetType() != m_pRight->GetType() ) {
+	if( IsComparisonBinop(m_binop) && *m_pLeft->GetType() != *m_pRight->GetType() ) {
 		return ErrorCodegen( "Lhs and rhs do not have the same type for comparison binary expression" );
 	} // end if error
 
@@ -278,15 +278,38 @@ Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	Value* pValue= m_pExpr->Codegen( context, scope );
 	if( !pValue ) return ErrorCodegen( "Could not generate code for cast operand" );
 
-	// If this is an empty cast, just return the expression's code
+	// Emit code for our type
+	const Type* pType= m_pType->Codegen( context, scope );
+	if( !pType ) return ErrorCodegen( "Could not generate code for cast type" );
+
+	// If this is an identity cast, just return the expression's code
 	if( *m_pExpr->GetType() == *m_pType ) return pValue;
 
-	// Floating-point casts
+	// Floating point to floating point casts
 	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsFloatingPoint() )
-		return context.GetBuilder().CreateFPCast( pValue, m_pType->Codegen(context, scope), "casttmp" );
+		return context.GetBuilder().CreateFPCast( pValue, pType, "fpcasttmp" );
+
+	// Floating point to signed integer
+	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsSigned() )
+		return context.GetBuilder().CreateFPToSI( pValue, pType, "cast_fp_si_tmp" );
+	// Floating point to unsigned integer
+	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsUnsigned() )
+		return context.GetBuilder().CreateFPToUI( pValue, pType, "cast_fp_ui_tmp" );
+	// Signed integer to floating point
+	if( m_pExpr->GetType()->IsSigned() && m_pType->IsFloatingPoint() )
+		return context.GetBuilder().CreateUIToFP( pValue, pType, "cast_ui_fp_tmp" );
+	// Unsigned integer to floating point
+	if( m_pExpr->GetType()->IsUnsigned() && m_pType->IsFloatingPoint() )
+		return context.GetBuilder().CreateSIToFP( pValue, pType, "cast_si_fp_tmp" );
+	// Bool to integer
+	if( *m_pExpr->GetType() == *TypeAST::GetBool() && m_pType->IsIntegral() )
+		return context.GetBuilder().CreateIntCast( pValue, pType, false, "cast_bool_int_tmp" );
+	// Integer to integer
+	if( m_pExpr->GetType()->IsIntegral() && m_pType->IsIntegral() )
+		return context.GetBuilder().CreateIntCast( pValue, pType, m_pExpr->GetType()->IsSigned(), "intcasttmp" );
 
 	// Unhandled case
-	return ErrorCodegen( "Unhandled cast from \"" + m_pExpr->GetType()->GetName() + "\" to \"" + m_pType->GetName() );
+	return ErrorCodegen( "Unhandled cast from \"" + m_pExpr->GetType()->GetName() + "\" to \"" + m_pType->GetName() + "\"" );
 } // end CastAST::Codegen()
 
 
@@ -503,7 +526,10 @@ void ExprStmtAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 
 
 const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	if( *this == *GetInt() ) return Type::getInt64Ty(getGlobalContext());
+	if( *this == *GetChar() || *this == *GetUChar() ) return Type::getInt8Ty(getGlobalContext());
+	if( *this == *GetShort() || *this == *GetUShort() ) return Type::getInt16Ty(getGlobalContext());
+	else if( *this == *GetInt() || *this == *GetUInt() ) return Type::getInt32Ty(getGlobalContext());
+	if( *this == *GetLong() || *this == *GetULong() ) return Type::getInt64Ty(getGlobalContext());
 	else if( *this == *GetFloat() ) return Type::getFloatTy(getGlobalContext());
 	else if( *this == *GetDouble() ) return Type::getDoubleTy(getGlobalContext());
 	else if( *this == *GetBool() ) return Type::getInt1Ty(getGlobalContext());

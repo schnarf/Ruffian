@@ -93,12 +93,18 @@ private:
 	//! for a function that hasn't even been prototyped, also returns FALSE.
 	bool isFunctionDefinedInScope( const string& strName );
 
+	//! Sets the expected return type, should be used inside function bodies
+	void setExpectedReturnType( const shared_ptr<const TypeAST>& pReturnType ) { m_parseScope.pReturnType= pReturnType; }
+	//! Gets the expected return type, should be used inside function bodies
+	const shared_ptr<const TypeAST>& getExpectedReturnType() const { return m_parseScope.pReturnType; }
+
 	//! Holds the scope that the parser needs to know about
 	struct ParseScope {
 		map<string, shared_ptr<DeclarationAST>> variables;	//!< Table of variable declarations
 		map<string, shared_ptr<PrototypeAST>> prototypes;	//!< Table of function prototypes
 		map<string, shared_ptr<const TypeAST>> types;		//!< Table of types
 		set<string> definedFunctions;						//!< Set of defined functions
+		shared_ptr<const TypeAST> pReturnType;				//!< Expected return type, only set in function definitions
 	}; // end struct ParseScope
 
 	ParseScope m_parseScope;

@@ -13,7 +13,7 @@ const shared_ptr<const TypeAST>& BinopAST::GetType() const { return GetBinopType
 const shared_ptr<const TypeAST>& PrefixUnaryAST::GetType() const { return GetPrefixUnaryOpType(m_op, m_pExpr->GetType()); }
 const shared_ptr<const TypeAST>& PostfixUnaryAST::GetType() const { return GetPostfixUnaryOpType(m_op, m_pExpr->GetType()); }
 
-const shared_ptr<const TypeAST>& IntegerAST::GetType() const { return TypeAST::GetInt(); }
+const shared_ptr<const TypeAST>& IntegerAST::GetType() const { return TypeAST::GetLong(); }
 const shared_ptr<const TypeAST>& DoubleAST::GetType() const { return TypeAST::GetDouble(); }
 const shared_ptr<const TypeAST>& BoolAST::GetType() const { return TypeAST::GetBool(); }
 

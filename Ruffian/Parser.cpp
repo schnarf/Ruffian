@@ -257,9 +257,9 @@ shared_ptr<ExprAST> Parser::parseBinopRHS( int precedence, shared_ptr<ExprAST> p
 
 		// If the lhs and rhs don't have the same type, check for an implicit conversion
 		if( pLeft->GetType() != pRight->GetType() ) {
-			shared_ptr<const TypeAST> pType= GetBinaryOpsImplicitCastType( pLeft->GetType(), pRight->GetType() );
+			shared_ptr<const TypeAST> pType= GetBinaryOpsImplicitCastType( pLeft, pRight );
 			if( !pType ) {
-				cerr << "No implicit conversion allows a binary operation between expressions of type \"" + pLeft->GetType()->GetName() + "\" and \"" + pRight->GetType()->GetName() << endl;
+				cerr << "No implicit conversion allows a binary operation between expressions of type \"" + pLeft->GetType()->GetName() + "\" and \"" + pRight->GetType()->GetName() + "\"\n";
 				return NULL;
 			} // end if no implicit conversion
 
@@ -410,6 +410,10 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 	// If this is a full function definition, start a new scope, and add the variable declarations so the function body can reference them
 	ScopeSentry s_scope( this );
 	for( uint iArg=0; iArg<pArgs.size(); ++iArg ) if( !addVariableToScope(pArgs[iArg]) ) return null_ret;
+
+	// Set the expected return type for this function, so the expressions for return statements
+	// can be implicitly casted to this type
+	setExpectedReturnType( pReturnType );
 
 	// Parse the function's body
 	shared_ptr<BlockAST> pBody( parseBlock() );
@@ -565,6 +569,23 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
 
+	// Check for the expected return type. If it doesn't exist, that means this
+	// statement is not inside a function body, and that's an error.
+	if( !getExpectedReturnType() ) {
+		cerr << "Found a return statement not inside a function body\n";
+		return NULL;
+	} // end if no return type
+
+	// Implicitly cast to the expected return type, if we have a different type
+	if( *pExpr->GetType() != *getExpectedReturnType() ) {
+		if( IsImplicitCastAllowed(pExpr, getExpectedReturnType()) ) {
+			pExpr.reset( new CastAST(pExpr, getExpectedReturnType()) );
+		} else {
+			cerr << "Implicit cast from \"" + pExpr->GetType()->GetName() + "\" to \"" + getExpectedReturnType()->GetName() + "\" is not allowed, while parsing return statement\n";
+			return NULL;
+		}
+	} // end if not type type
+
 	return shared_ptr<ReturnAST>( new ReturnAST(pExpr) );
 } // end Parser::parseReturnStatement()
 
@@ -629,7 +650,7 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	// Check for implicit casts if we have an initializer
 	if( pInitializer ) {
 		if( *pType != *pInitializer->GetType() ) {
-			if( !IsImplicitCastAllowed(pInitializer->GetType(), pType) ) {
+			if( !IsImplicitCastAllowed(pInitializer, pType) ) {
 				cerr << "Cannot implicitly convert variable initializer of type \"" + pInitializer->GetType()->GetName() + "\" to declaration of type \"" + pType->GetName() << endl;
 				return NULL;
 			} // end if no implicit cast
@@ -754,7 +775,7 @@ shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 		if( *pArgs[iArg]->GetType() == *pPrototype->GetArgs()[iArg]->GetType() ) continue;
 
 		// Check for an implicit conversion
-		if( IsImplicitCastAllowed(pArgs[iArg]->GetType(), pPrototype->GetArgs()[iArg]->GetType()) ) {
+		if( IsImplicitCastAllowed(pArgs[iArg], pPrototype->GetArgs()[iArg]->GetType()) ) {
 			pArgs[iArg].reset( new CastAST(pArgs[iArg], pPrototype->GetArgs()[iArg]->GetType()) );
 		} else {
 			cerr << "Argument " << 1+iArg << " for function " << strName << " cannot be implicitly converted from \"" + pArgs[iArg]->GetType()->GetName() + "\" to \"" + pPrototype->GetArgs()[iArg]->GetType()->GetName() + "\"\n";
@@ -788,8 +809,8 @@ shared_ptr<CastAST> Parser::parseCastExpression( const string& strType ) {
 	} // end if parse error
 
 	// TODO: Check if the cast is valid
-	if( *pType == *TypeAST::GetVoid() ) {
-		cerr << "Cannot cast to void type\n";
+	if( !IsCastAllowed(pExpr->GetType(), pType) ) {
+		cerr << "Cannot cast from \"" + pExpr->GetType()->GetName() + "\" to \"" + pType->GetName() + "\" while parsing a cast expression\n";
 		return NULL;
 	} // end if void
 

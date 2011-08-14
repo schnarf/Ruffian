@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include "llvm/Support/DynamicLibrary.h"
 
-static void printInt( int64 i ) {
+static void printInt( int i ) {
 	cout << i << endl;
 } // end printInt()
 
@@ -56,7 +56,7 @@ int main( int argc, char* argv[] ) {
 	// Add our environment's functions
 	{
 		vector<const llvm::Type*> pArgTypes;
-		pArgTypes.push_back( llvm::Type::getInt64Ty(llvm::getGlobalContext()) );
+		pArgTypes.push_back( llvm::Type::getInt32Ty(llvm::getGlobalContext()) );
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
 		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printInt", pCodegen->GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printInt", (void*)printInt );
@@ -96,7 +96,7 @@ int main( int argc, char* argv[] ) {
 		cerr << "Could not resolve main()\n";
 		return 1;
 	} // end if no main function
-	if( pMainFunction->getReturnType() != llvm::Type::getInt64Ty(llvm::getGlobalContext()) ) {
+	if( pMainFunction->getReturnType() != llvm::Type::getInt32Ty(llvm::getGlobalContext()) ) {
 		cerr << "main() was found but does not return an int64\n";
 		return 1;
 	} // end if wrong return type
@@ -104,13 +104,13 @@ int main( int argc, char* argv[] ) {
 		cerr << "main() was found but does not take exactly 1 argument\n";
 		return 1;
 	} // end if wrong argument count
-	if( pMainFunction->getArgumentList().front().getType() != llvm::Type::getInt64Ty(llvm::getGlobalContext()) ) {
-		cerr << "main() must take an argument of type int64\n";
+	if( pMainFunction->getArgumentList().front().getType() != llvm::Type::getInt32Ty(llvm::getGlobalContext()) ) {
+		cerr << "main() must take an argument of type int32\n";
 		return 1;
 	} // end if wrong argument type
 
 	// JIT the function, returning a function pointer
-	int64 (*mainFunc)(int64)= (int64(*)(int64))pCodegen->GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
+	int32 (*mainFunc)(int32)= (int32(*)(int32))pCodegen->GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
 	cout << "main() returned " << mainFunc(23) << endl;
 
 	return 0;

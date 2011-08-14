@@ -81,5 +81,13 @@ def main(int n) -> int {
 	printDouble( float(2.3) );
 	printDouble( double(f) );
 
+	printNewline();
+
+	printInt( int(2.3) );
+	printInt( int(float(5)) );
+	printFloat( float(int(true)) );
+	printInt( int(true) );
+	printInt( int(false) );
+
 	return fibonacci(n);
 }
