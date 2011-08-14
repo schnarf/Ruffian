@@ -41,7 +41,7 @@ public:
 	//! Returns our name
 	const string& GetName() const { return m_strName; }
 	//! Returns our type
-	const TypeAST& GetType() const { ASSERT( m_pType ); return *m_pType; }
+	const shared_ptr<const TypeAST>& GetType() const { ASSERT( m_pType ); return m_pType; }
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:

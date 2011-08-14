@@ -3,6 +3,7 @@
 #include "AST.h"
 #include "Lexer.h"
 #include "SemBinop.h"
+#include "SemCast.h"
 
 //! Initialize with parser
 Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
@@ -10,8 +11,8 @@ Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
 
 	// Initialize our scope with our built-in types
 	for( vector<shared_ptr<const TypeAST>>::const_iterator itType=TypeAST::GetBuiltinTypes().begin(); itType!=TypeAST::GetBuiltinTypes().end(); ++itType ) {
-		// Don't add the error type
-		if( **itType == TypeAST::GetError() ) continue;
+		// Don't add the error type*
+		if( **itType == *TypeAST::GetError() ) continue;
 
 		// Add the type to our map
 		m_parseScope.types[(*itType)->GetName()]= *itType;
@@ -249,6 +250,19 @@ shared_ptr<ExprAST> Parser::parseBinopRHS( int precedence, shared_ptr<ExprAST> p
 			return NULL;
 		} // end if assignment
 
+		// If the lhs and rhs don't have the same type, check for an implicit conversion
+		if( pLeft->GetType() != pRight->GetType() ) {
+			shared_ptr<const TypeAST> pType= GetBinaryOpsImplicitCastType( pLeft->GetType(), pRight->GetType() );
+			if( !pType ) {
+				cerr << "No implicit conversion allows a binary operation between expressions of type \"" + pLeft->GetType()->GetName() + "\" and \"" + pRight->GetType()->GetName() << endl;
+				return NULL;
+			} // end if no implicit conversion
+
+			// Cast the LHS and RHS as necessary
+			if( *pLeft->GetType() != *pType ) pLeft.reset( new CastAST(pLeft, pType) );
+			if( *pRight->GetType() != *pType ) pRight.reset( new CastAST(pRight, pType) );
+		} // end if not same type
+
 		// Merge LHS and RHS
 		pLeft.reset( new BinopAST(binop, pLeft, pRight) );
 	} // end while parsing
@@ -314,7 +328,7 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 		shared_ptr<const TypeAST> pType( parseType() );
 
 		// Prevent void arguments
-		if( *pType == TypeAST::GetVoid() ) {
+		if( *pType == *TypeAST::GetVoid() ) {
 			cerr << "Cannot have an argument of type void, while parsing function prototype argument list\n";
 			return null_ret;
 		} // end if void type
@@ -602,10 +616,26 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	} // end if type not found
 
 	// Disallow variables of type "void"
-	if( *pType == TypeAST::GetVoid() ) {
+	if( *pType == *TypeAST::GetVoid() ) {
 		cerr << "Cannot declare a variable of type \"void\"\n";
 		return NULL;
 	} // end if void
+
+	// Check for implicit casts if we have an initializer
+	if( pInitializer ) {
+		if( *pType != *pInitializer->GetType() ) {
+			if( !IsImplicitCastAllowed(pInitializer->GetType(), pType) ) {
+				cerr << "Cannot implicitly convert variable initializer of type \"" + pInitializer->GetType()->GetName() + "\" to declaration of type \"" + pType->GetName() << endl;
+				return NULL;
+			} // end if no implicit cast
+
+			// If we got here, construct the implicit cast
+			pInitializer.reset( new CastAST(pInitializer, pType) );
+		} // end if not same type
+	} // end if checking for implicit cast
+
+	// At this point, if the initializer exists, it should have the same type as the declaration
+	ASSERT( !pInitializer || *pInitializer->GetType() == *pType );
 
 	// Add the variable to the current scope and then return the declaration
 	shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strName, pType, pInitializer) );
@@ -713,11 +743,18 @@ shared_ptr<CallAST> Parser::parseCallExpression( const string& strName ) {
 		return NULL;
 	} // end if wrong number of arguments
 
+	// Check for implicit casts for each of the arguments
 	for( uint iArg=0; iArg<pArgs.size(); ++iArg ) {
-		if( pArgs[iArg]->GetType() != pPrototype->GetArgs()[iArg]->GetType() ) {
-			cerr << "Argument " << 1+iArg << " for function " << strName << " has the wrong type. Found \"" + pArgs[iArg]->GetType().GetName() + "\" but expected \"" + pPrototype->GetArgs()[iArg]->GetType().GetName() + "\"\n";
+		// Skip this argument if it already has the right type
+		if( *pArgs[iArg]->GetType() == *pPrototype->GetArgs()[iArg]->GetType() ) continue;
+
+		// Check for an implicit conversion
+		if( IsImplicitCastAllowed(pArgs[iArg]->GetType(), pPrototype->GetArgs()[iArg]->GetType()) ) {
+			pArgs[iArg].reset( new CastAST(pArgs[iArg], pPrototype->GetArgs()[iArg]->GetType()) );
+		} else {
+			cerr << "Argument " << 1+iArg << " for function " << strName << " cannot be implicitly converted from \"" + pArgs[iArg]->GetType()->GetName() + "\" to \"" + pPrototype->GetArgs()[iArg]->GetType()->GetName() + "\"\n";
 			return NULL;
-		} // end if wrong type
+		}
 	} // end for argument
 	
 	return shared_ptr<CallAST>( new CallAST(pPrototype, pArgs) );

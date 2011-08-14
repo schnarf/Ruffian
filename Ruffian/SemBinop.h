@@ -4,11 +4,11 @@
 #include "TypeAST.h"
 
 //! Returns the resulting type of a binary operation
-inline const TypeAST& GetBinopType( Token binop, const TypeAST& l, const TypeAST& r ) {
+inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_ptr<const TypeAST>& l, const shared_ptr<const TypeAST>& r ) {
 	if( !Lexer::IsBinopToken(binop) ) { ASSERT( false ); return TypeAST::GetError(); }
 
 	// For now, only allow builtin arithmetic types
-	if( !l.IsArithmetic() || !r.IsArithmetic() ) return TypeAST::GetError();
+	if( !l->IsArithmetic() || !r->IsArithmetic() ) return TypeAST::GetError();
 
 	switch( binop ) {
 	case TOKEN_PLUS:
@@ -18,8 +18,8 @@ inline const TypeAST& GetBinopType( Token binop, const TypeAST& l, const TypeAST
 		// If both arguments are the same type, return that type
 		if( l == r ) return l;
 		// If one is signed integral, and one is floating point, return the floating-point type
-		if( l.IsSigned() && r.IsFloatingPoint() ) return r;
-		if( l.IsFloatingPoint() && r.IsSigned() ) return l;
+		if( l->IsSigned() && r->IsFloatingPoint() ) return r;
+		if( l->IsFloatingPoint() && r->IsSigned() ) return l;
 		// Otherwise, this is an invalid type
 		return TypeAST::GetError();
 	case TOKEN_ASSIGN:

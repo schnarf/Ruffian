@@ -125,6 +125,7 @@
     <ClInclude Include="ModuleAST.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="SemBinop.h" />
+    <ClInclude Include="SemCast.h" />
     <ClInclude Include="SemScope.h" />
     <ClInclude Include="SemUnaryOp.h" />
     <ClInclude Include="StmtAST.h" />

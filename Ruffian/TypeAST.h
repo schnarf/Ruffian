@@ -13,18 +13,18 @@ public:
 	virtual const llvm::Type* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 
 	//! Returns the static instance of the "int" type
-	static const TypeAST& GetInt() { return *m_pTypeInt; }
+	static const shared_ptr<const TypeAST>& GetInt() { return m_pTypeInt; }
 	//! Returns the static instance of the "float" type
-	static const TypeAST& GetFloat() { return *m_pTypeFloat; }
+	static const shared_ptr<const TypeAST>& GetFloat() { return m_pTypeFloat; }
 	//! Returns the static instance of the "double" type
-	static const TypeAST& GetDouble() { return *m_pTypeDouble; }
+	static const shared_ptr<const TypeAST>& GetDouble() { return m_pTypeDouble; }
 	//! Returns the static instance of the "bool" type
-	static const TypeAST& GetBool() { return *m_pTypeBool; }
+	static const shared_ptr<const TypeAST>& GetBool() { return m_pTypeBool; }
 	//! Returns the static instance of the "void" type
-	static const TypeAST& GetVoid() { return *m_pTypeVoid; }
+	static const shared_ptr<const TypeAST>& GetVoid() { return m_pTypeVoid; }
 	//! Returns the static instance of the "error" type, not a valid type,
 	//! but one used to report that an expression has no valid type
-	static const TypeAST& GetError() { return *m_pTypeError; }
+	static const shared_ptr<const TypeAST>& GetError() { return m_pTypeError; }
 
 	//! Gets a vector of built-in types
 	static const vector<shared_ptr<const TypeAST>>& GetBuiltinTypes() {
@@ -72,10 +72,10 @@ private:
 	string m_strType;
 
 	//! Built-in types
-	static shared_ptr<TypeAST> m_pTypeInt,
-	                           m_pTypeFloat,
-							   m_pTypeDouble,
-				               m_pTypeBool,
-				               m_pTypeVoid,
-				               m_pTypeError;
+	static shared_ptr<const TypeAST> m_pTypeInt,
+	                                 m_pTypeFloat,
+							         m_pTypeDouble,
+				                     m_pTypeBool,
+				                     m_pTypeVoid,
+				                     m_pTypeError;
 }; // end class TypeAST

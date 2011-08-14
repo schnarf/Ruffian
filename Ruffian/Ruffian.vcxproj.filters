@@ -113,6 +113,9 @@
     <ClInclude Include="SemUnaryOp.h">
       <Filter>Header Files\Sem</Filter>
     </ClInclude>
+    <ClInclude Include="SemCast.h">
+      <Filter>Header Files\Sem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.txt">

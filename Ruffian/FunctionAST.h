@@ -20,7 +20,7 @@ public:
 	//! Returns our arguments
 	const vector<shared_ptr<DeclarationAST>>& GetArgs() const { return m_pArgs; }
 	//! Returns our return type
-	const TypeAST& GetReturnType() const { ASSERT( m_pReturnType ); return *m_pReturnType; }
+	const shared_ptr<const TypeAST>& GetReturnType() const { ASSERT( m_pReturnType ); return m_pReturnType; }
 
 	llvm::Function* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 
@@ -45,7 +45,7 @@ public:
 	//! Returns our arguments
 	const vector<shared_ptr<DeclarationAST>>& GetArgs() const { return m_pPrototype->GetArgs(); }
 	//! Returns our return type
-	const TypeAST& GetReturnType() const { return m_pPrototype->GetReturnType(); }
+	const shared_ptr<const TypeAST>& GetReturnType() const { return m_pPrototype->GetReturnType(); }
 
 	llvm::Function* Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:

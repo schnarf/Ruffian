@@ -78,43 +78,54 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		return ErrorCodegen( "Lhs and rhs do not have the same type for comparison binary expression" );
 	} // end if error
 
-	// TODO: everything is being done floating-point. Should take into account types of operands
-	// and come up with simple rules for conversion
+	// At this point we expect casts to have been done. We just have to see if the operands
+	// are floating point or integer
+	if( !m_pLeft->GetType()->IsArithmetic() && !m_pRight->GetType()->IsArithmetic() )
+		return ErrorCodegen( "Cannot generate binary operation code for non-arithmetic types" );
+	if( m_pLeft->GetType()->IsFloatingPoint() != m_pRight->GetType()->IsFloatingPoint() )
+		return ErrorCodegen( "Lhs and rhs are not both floating point or integer types" );
+	bool bIntegral= m_pLeft->GetType()->IsIntegral();
 	switch( m_binop ) {
-	case TOKEN_PLUS: return context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" );
-	case TOKEN_MINUS: return context.GetBuilder().CreateSub( pLeft, pRight, "subtmp" );
-	case TOKEN_STAR: return context.GetBuilder().CreateMul( pLeft, pRight, "multmp" );
+	case TOKEN_PLUS: return bIntegral
+						 ? context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" )
+						 : context.GetBuilder().CreateFAdd( pLeft, pRight, "addtmp" );
+	case TOKEN_MINUS: return bIntegral
+						  ? context.GetBuilder().CreateSub( pLeft, pRight, "subtmp" )
+						  : context.GetBuilder().CreateFSub( pLeft, pRight, "subtmp" );
+	case TOKEN_STAR: return bIntegral
+						 ? context.GetBuilder().CreateMul( pLeft, pRight, "multmp" )
+						 : context.GetBuilder().CreateFMul( pLeft, pRight, "multmp" );
 	case TOKEN_SLASH: 
-		if( m_pLeft->GetType().IsSigned() && m_pRight->GetType().IsSigned() )
+		if( m_pLeft->GetType()->IsSigned() && m_pRight->GetType()->IsSigned() )
 			return context.GetBuilder().CreateSDiv( pLeft, pRight, "divtmp" );
-		else if( m_pLeft->GetType().IsUnsigned() && m_pRight->GetType().IsUnsigned() )
+		else if( m_pLeft->GetType()->IsUnsigned() && m_pRight->GetType()->IsUnsigned() )
 			return context.GetBuilder().CreateUDiv( pLeft, pRight, "divtmp" );
-		else if( m_pLeft->GetType().IsFloatingPoint() && m_pRight->GetType().IsFloatingPoint() )
+		else if( m_pLeft->GetType()->IsFloatingPoint() && m_pRight->GetType()->IsFloatingPoint() )
 			return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
 	
 		// For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
 	case TOKEN_EQ:
-		return m_pLeft->GetType().IsIntegral()
+		return m_pLeft->GetType()->IsIntegral()
 			? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
 	case TOKEN_NEQ:
-		return m_pLeft->GetType().IsIntegral()
+		return m_pLeft->GetType()->IsIntegral()
 			? context.GetBuilder().CreateICmpNE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUNE( pLeft, pRight, "cmptmp" );
 	case TOKEN_LT:
-		return m_pLeft->GetType().IsIntegral()
+		return m_pLeft->GetType()->IsIntegral()
 			? context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
 	case TOKEN_GT:
-		return m_pLeft->GetType().IsIntegral()
+		return m_pLeft->GetType()->IsIntegral()
 			? context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
 	case TOKEN_LE:
-		return m_pLeft->GetType().IsIntegral()
+		return m_pLeft->GetType()->IsIntegral()
 			? context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
 	case TOKEN_GE:
-		return m_pLeft->GetType().IsIntegral()
+		return m_pLeft->GetType()->IsIntegral()
 			? context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
 	default:
@@ -136,7 +147,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 
 	case TOKEN_INCREMENT: {
 		// We require an integer type
-		if( !m_pExpr->GetType().IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
+		if( !m_pExpr->GetType()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
 
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -148,7 +159,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()) );
+		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()) );
 		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
 
 		// Emit the store
@@ -159,7 +170,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 
 	case TOKEN_DECREMENT: {
 		// We require a signed integer type
-		if( !m_pExpr->GetType().IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
+		if( !m_pExpr->GetType()->IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
 		
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -171,7 +182,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()));
+		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()));
 		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
 
 		// Emit the store
@@ -190,7 +201,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 	switch( m_op ) {
 	case TOKEN_INCREMENT: {
 		// We require an integer type
-		if( !m_pExpr->GetType().IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
+		if( !m_pExpr->GetType()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
 
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -202,7 +213,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()) );
+		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()) );
 		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
 
 		// Emit the store
@@ -213,7 +224,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 
 	case TOKEN_DECREMENT: {
 		// We require a signed integer type
-		if( !m_pExpr->GetType().IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
+		if( !m_pExpr->GetType()->IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
 		
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -225,7 +236,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType().IsSigned()));
+		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()));
 		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
 
 		// Emit the store
@@ -262,10 +273,27 @@ Value* CallAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 } // end CallAST::Codegen()
 
 
+Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	// Emit code for our expression
+	Value* pValue= m_pExpr->Codegen( context, scope );
+	if( !pValue ) return ErrorCodegen( "Could not generate code for cast operand" );
+
+	// If this is an empty cast, just return the expression's code
+	if( *m_pExpr->GetType() == *m_pType ) return pValue;
+
+	// Floating-point casts
+	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsFloatingPoint() )
+		return context.GetBuilder().CreateFPCast( pValue, m_pType->Codegen(context, scope), "casttmp" );
+
+	// Unhandled case
+	return ErrorCodegen( "Unhandled cast from \"" + m_pExpr->GetType()->GetName() + "\" to \"" + m_pType->GetName() );
+} // end CastAST::Codegen()
+
+
 Function* PrototypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Make the function type
 	vector<const Type*> pArgTypes( m_pArgs.size() );
-	for( uint i=0; i<m_pArgs.size(); ++i ) pArgTypes[i]= m_pArgs[i]->GetType().Codegen( context, scope );
+	for( uint i=0; i<m_pArgs.size(); ++i ) pArgTypes[i]= m_pArgs[i]->GetType()->Codegen( context, scope );
 	
 	FunctionType* pFunctionType= FunctionType::get( m_pReturnType->Codegen(context, scope), pArgTypes, false );
 
@@ -300,7 +328,7 @@ Function* FunctionAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 	Function::arg_iterator itArg= pFunction->arg_begin();
 	for( uint iArg=0; iArg<GetArgs().size(); ++iArg, ++itArg ) {
 		// Create the alloca for this variable
-		AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetArgs()[iArg]->GetName(), GetArgs()[iArg]->GetType().Codegen(context, scope) );
+		AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetArgs()[iArg]->GetName(), GetArgs()[iArg]->GetType()->Codegen(context, scope) );
 		// Store the initial value into the alloca
 		// TODO: is this necessary/correct?
 		context.GetBuilder().CreateStore( itArg, pAlloca );
@@ -475,11 +503,11 @@ void ExprStmtAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 
 
 const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	if( *this == GetInt() ) return Type::getInt64Ty(getGlobalContext());
-	else if( *this == GetFloat() ) return Type::getFloatTy(getGlobalContext());
-	else if( *this == GetDouble() ) return Type::getDoubleTy(getGlobalContext());
-	else if( *this == GetBool() ) return Type::getInt1Ty(getGlobalContext());
-	else if( *this == GetVoid() ) return Type::getVoidTy(getGlobalContext());
+	if( *this == *GetInt() ) return Type::getInt64Ty(getGlobalContext());
+	else if( *this == *GetFloat() ) return Type::getFloatTy(getGlobalContext());
+	else if( *this == *GetDouble() ) return Type::getDoubleTy(getGlobalContext());
+	else if( *this == *GetBool() ) return Type::getInt1Ty(getGlobalContext());
+	else if( *this == *GetVoid() ) return Type::getVoidTy(getGlobalContext());
 	else {
 		cerr << "Unknown type \"" << m_strType << "\"";
 		return NULL;

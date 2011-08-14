@@ -66,6 +66,18 @@ def main(int n) -> int {
 	d= 4.5;
 	printDouble( d );
 	printDouble( 1.2 );
+	printNewline();
+
+	float f= 8.5;
+	printFloat( f );
+	printNewline();
+
+	double d2= f;
+	printDouble( d2 );
+	printNewline();
+
+	printDouble( d2 * f );
+	printFloat( d2 );
 
 	return fibonacci(n);
 }
