@@ -5,10 +5,10 @@
 
 //! Returns the resulting type of a binary operation
 inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_ptr<const TypeAST>& l, const shared_ptr<const TypeAST>& r ) {
-	if( !Lexer::IsBinopToken(binop) ) { ASSERT( false ); return TypeAST::GetError(); }
+	if( !Lexer::IsBinopToken(binop) ) { ASSERT( false ); return BuiltinTypeAST::GetError(); }
 
 	// For now, only allow builtin arithmetic types
-	if( !l->IsArithmetic() || !r->IsArithmetic() ) return TypeAST::GetError();
+	if( !l->ToBuiltin()->IsArithmetic() || !r->ToBuiltin()->IsArithmetic() ) return BuiltinTypeAST::GetError();
 
 	switch( binop ) {
 	case TOKEN_PLUS:
@@ -18,10 +18,10 @@ inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_
 		// If both arguments are the same type, return that type
 		if( l == r ) return l;
 		// If one is signed integral, and one is floating point, return the floating-point type
-		if( l->IsSigned() && r->IsFloatingPoint() ) return r;
-		if( l->IsFloatingPoint() && r->IsSigned() ) return l;
+		if( l->ToBuiltin()->IsSigned() && r->ToBuiltin()->IsFloatingPoint() ) return r;
+		if( l->ToBuiltin()->IsFloatingPoint() && r->ToBuiltin()->IsSigned() ) return l;
 		// Otherwise, this is an invalid type
-		return TypeAST::GetError();
+		return BuiltinTypeAST::GetError();
 	case TOKEN_ASSIGN:
 		// Even when casts are added, this will return the type of the LHS
 		return l;
@@ -32,10 +32,10 @@ inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_
 	case TOKEN_NEQ:
 	case TOKEN_EQ:
 		// These comparison operators all give a bool
-		return TypeAST::GetBool();
+		return BuiltinTypeAST::GetBool();
 	default:
 		ASSERT( false );
-		return TypeAST::GetError();
+		return BuiltinTypeAST::GetError();
 	}
 } // end GetBinopType()
 

@@ -23,7 +23,6 @@ public:
 	//! an arbitrary expression is constant, so we consider an expression
 	//! to be constant if it's made up entirely of literals and operators.
 	virtual bool IsConstant() const { return false; }
-
 }; // end class ExprAST
 
 

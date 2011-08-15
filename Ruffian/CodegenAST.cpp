@@ -80,11 +80,11 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 	// At this point we expect casts to have been done. We just have to see if the operands
 	// are floating point or integer
-	if( !m_pLeft->GetType()->IsArithmetic() && !m_pRight->GetType()->IsArithmetic() )
+	if( !m_pLeft->GetType()->ToBuiltin()->IsArithmetic() && !m_pRight->GetType()->ToBuiltin()->IsArithmetic() )
 		return ErrorCodegen( "Cannot generate binary operation code for non-arithmetic types" );
-	if( m_pLeft->GetType()->IsFloatingPoint() != m_pRight->GetType()->IsFloatingPoint() )
+	if( m_pLeft->GetType()->ToBuiltin()->IsFloatingPoint() != m_pRight->GetType()->ToBuiltin()->IsFloatingPoint() )
 		return ErrorCodegen( "Lhs and rhs are not both floating point or integer types" );
-	bool bIntegral= m_pLeft->GetType()->IsIntegral();
+	bool bIntegral= m_pLeft->GetType()->ToBuiltin()->IsIntegral();
 	switch( m_binop ) {
 	case TOKEN_PLUS: return bIntegral
 						 ? context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" )
@@ -96,36 +96,36 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 						 ? context.GetBuilder().CreateMul( pLeft, pRight, "multmp" )
 						 : context.GetBuilder().CreateFMul( pLeft, pRight, "multmp" );
 	case TOKEN_SLASH: 
-		if( m_pLeft->GetType()->IsSigned() && m_pRight->GetType()->IsSigned() )
+		if( m_pLeft->GetType()->ToBuiltin()->IsSigned() && m_pRight->GetType()->ToBuiltin()->IsSigned() )
 			return context.GetBuilder().CreateSDiv( pLeft, pRight, "divtmp" );
-		else if( m_pLeft->GetType()->IsUnsigned() && m_pRight->GetType()->IsUnsigned() )
+		else if( m_pLeft->GetType()->ToBuiltin()->IsUnsigned() && m_pRight->GetType()->ToBuiltin()->IsUnsigned() )
 			return context.GetBuilder().CreateUDiv( pLeft, pRight, "divtmp" );
-		else if( m_pLeft->GetType()->IsFloatingPoint() && m_pRight->GetType()->IsFloatingPoint() )
+		else if( m_pLeft->GetType()->ToBuiltin()->IsFloatingPoint() && m_pRight->GetType()->ToBuiltin()->IsFloatingPoint() )
 			return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
 	
 		// For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
 	case TOKEN_EQ:
-		return m_pLeft->GetType()->IsIntegral()
+		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
 	case TOKEN_NEQ:
-		return m_pLeft->GetType()->IsIntegral()
+		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateICmpNE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUNE( pLeft, pRight, "cmptmp" );
 	case TOKEN_LT:
-		return m_pLeft->GetType()->IsIntegral()
+		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
 	case TOKEN_GT:
-		return m_pLeft->GetType()->IsIntegral()
+		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
 	case TOKEN_LE:
-		return m_pLeft->GetType()->IsIntegral()
+		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
 	case TOKEN_GE:
-		return m_pLeft->GetType()->IsIntegral()
+		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
 	default:
@@ -142,19 +142,19 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 	switch( m_op ) {
 	case TOKEN_NOT:
 		// We require a bool type
-		if( m_pExpr->GetType() != TypeAST::GetBool() ) return ErrorCodegen( "Unary ! requires a boolean operand" );
+		if( m_pExpr->GetType() != BuiltinTypeAST::GetBool() ) return ErrorCodegen( "Unary ! requires a boolean operand" );
 		return context.GetBuilder().CreateNot( pOp, "nottmp" );
 
 	case TOKEN_MINUS:
 		// Unary negation operator. We require an arithmetic type
-		if( !m_pExpr->GetType()->IsArithmetic() ) return ErrorCodegen( "Unary - requires arithmetic operand" );
-		return m_pExpr->GetType()->IsIntegral()
+		if( !m_pExpr->GetType()->ToBuiltin()->IsArithmetic() ) return ErrorCodegen( "Unary - requires arithmetic operand" );
+		return m_pExpr->GetType()->ToBuiltin()->IsIntegral()
 			? context.GetBuilder().CreateNeg( pOp, "negtmp" )
 			: context.GetBuilder().CreateFNeg( pOp, "negtmp" );
 
 	case TOKEN_INCREMENT: {
 		// We require an integer type
-		if( !m_pExpr->GetType()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
+		if( !m_pExpr->GetType()->ToBuiltin()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
 
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -166,7 +166,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()) );
+		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()) );
 		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
 
 		// Emit the store
@@ -177,7 +177,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 
 	case TOKEN_DECREMENT: {
 		// We require a signed integer type
-		if( !m_pExpr->GetType()->IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
+		if( !m_pExpr->GetType()->ToBuiltin()->IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
 		
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -189,7 +189,7 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()));
+		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()));
 		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
 
 		// Emit the store
@@ -208,7 +208,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 	switch( m_op ) {
 	case TOKEN_INCREMENT: {
 		// We require an integer type
-		if( !m_pExpr->GetType()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
+		if( !m_pExpr->GetType()->ToBuiltin()->IsIntegral() ) return ErrorCodegen( "Postfix increment requires an integral operand" );
 
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -220,7 +220,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()) );
+		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()) );
 		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
 
 		// Emit the store
@@ -231,7 +231,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 
 	case TOKEN_DECREMENT: {
 		// We require a signed integer type
-		if( !m_pExpr->GetType()->IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
+		if( !m_pExpr->GetType()->ToBuiltin()->IsSigned() ) return ErrorCodegen( "Postfix decrement requires an integral operand" );
 		
 		// Cast our operand to a variable
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pExpr );
@@ -243,7 +243,7 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
 
 		// Create the assignment
-		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->IsSigned()));
+		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()));
 		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
 
 		// Emit the store
@@ -276,7 +276,7 @@ Value* CallAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// We can't assign this temporary a name if it's a void, or LLVM will complain,
 	// so only give it the name "calltmp" if it's non-void. For now we still return
 	// the Value, but maybe consider returning NULL.
-	return context.GetBuilder().CreateCall( pFunction, pArgs.begin(), pArgs.end(), m_pPrototype->GetReturnType() == TypeAST::GetVoid() ? "" : "calltmp" );
+	return context.GetBuilder().CreateCall( pFunction, pArgs.begin(), pArgs.end(), m_pPrototype->GetReturnType() == BuiltinTypeAST::GetVoid() ? "" : "calltmp" );
 } // end CallAST::Codegen()
 
 
@@ -292,28 +292,31 @@ Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// If this is an identity cast, just return the expression's code
 	if( *m_pExpr->GetType() == *m_pType ) return pValue;
 
+	// If this is not a builtin type, we can't do anything yet
+	if( !m_pExpr->GetType()->IsBuiltin() ) return ErrorCodegen( "Could not generate cast to non-builtin type" );
+
 	// Floating point to floating point casts
-	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsFloatingPoint() )
+	if( m_pExpr->GetType()->ToBuiltin()->IsFloatingPoint() && m_pType->ToBuiltin()->IsFloatingPoint() )
 		return context.GetBuilder().CreateFPCast( pValue, pType, "fpcasttmp" );
 
 	// Floating point to signed integer
-	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsSigned() )
+	if( m_pExpr->GetType()->ToBuiltin()->IsFloatingPoint() && m_pType->ToBuiltin()->IsSigned() )
 		return context.GetBuilder().CreateFPToSI( pValue, pType, "cast_fp_si_tmp" );
 	// Floating point to unsigned integer
-	if( m_pExpr->GetType()->IsFloatingPoint() && m_pType->IsUnsigned() )
+	if( m_pExpr->GetType()->ToBuiltin()->IsFloatingPoint() && m_pType->ToBuiltin()->IsUnsigned() )
 		return context.GetBuilder().CreateFPToUI( pValue, pType, "cast_fp_ui_tmp" );
 	// Signed integer to floating point
-	if( m_pExpr->GetType()->IsSigned() && m_pType->IsFloatingPoint() )
+	if( m_pExpr->GetType()->ToBuiltin()->IsSigned() && m_pType->ToBuiltin()->IsFloatingPoint() )
 		return context.GetBuilder().CreateUIToFP( pValue, pType, "cast_ui_fp_tmp" );
 	// Unsigned integer to floating point
-	if( m_pExpr->GetType()->IsUnsigned() && m_pType->IsFloatingPoint() )
+	if( m_pExpr->GetType()->ToBuiltin()->IsUnsigned() && m_pType->ToBuiltin()->IsFloatingPoint() )
 		return context.GetBuilder().CreateSIToFP( pValue, pType, "cast_si_fp_tmp" );
 	// Bool to integer
-	if( *m_pExpr->GetType() == *TypeAST::GetBool() && m_pType->IsIntegral() )
+	if( *m_pExpr->GetType() == *BuiltinTypeAST::GetBool() && m_pType->ToBuiltin()->IsIntegral() )
 		return context.GetBuilder().CreateIntCast( pValue, pType, false, "cast_bool_int_tmp" );
 	// Integer to integer
-	if( m_pExpr->GetType()->IsIntegral() && m_pType->IsIntegral() )
-		return context.GetBuilder().CreateIntCast( pValue, pType, m_pExpr->GetType()->IsSigned(), "intcasttmp" );
+	if( m_pExpr->GetType()->ToBuiltin()->IsIntegral() && m_pType->ToBuiltin()->IsIntegral() )
+		return context.GetBuilder().CreateIntCast( pValue, pType, m_pExpr->GetType()->ToBuiltin()->IsSigned(), "intcasttmp" );
 
 	// Unhandled case
 	return ErrorCodegen( "Unhandled cast from \"" + m_pExpr->GetType()->GetName() + "\" to \"" + m_pType->GetName() + "\"" );
@@ -532,7 +535,7 @@ void ExprStmtAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 } // end ExprStmtAST::Codegen()
 
 
-const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+const Type* BuiltinTypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	if( *this == *GetChar() || *this == *GetUChar() ) return Type::getInt8Ty(getGlobalContext());
 	if( *this == *GetShort() || *this == *GetUShort() ) return Type::getInt16Ty(getGlobalContext());
 	else if( *this == *GetInt() || *this == *GetUInt() ) return Type::getInt32Ty(getGlobalContext());
@@ -542,10 +545,10 @@ const Type* TypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	else if( *this == *GetBool() ) return Type::getInt1Ty(getGlobalContext());
 	else if( *this == *GetVoid() ) return Type::getVoidTy(getGlobalContext());
 	else {
-		cerr << "Unknown type \"" << m_strType << "\"";
+		cerr << "Unknown builtin type \"" << GetName() << "\"";
 		return NULL;
 	}
-} // end TypeAST::Codegen()
+} // end BuiltinTypeAST::Codegen()
 
 
 //! Runs code generation for this module, returning TRUE on success and FALSE on failure

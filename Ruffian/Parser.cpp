@@ -10,9 +10,9 @@ Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
 	m_pLexer(pLexer) {
 
 	// Initialize our scope with our built-in types
-	for( vector<shared_ptr<const TypeAST>>::const_iterator itType=TypeAST::GetBuiltinTypes().begin(); itType!=TypeAST::GetBuiltinTypes().end(); ++itType ) {
+	for( vector<shared_ptr<const TypeAST>>::const_iterator itType=BuiltinTypeAST::GetBuiltinTypes().begin(); itType!=BuiltinTypeAST::GetBuiltinTypes().end(); ++itType ) {
 		// Don't add the error type*
-		if( **itType == *TypeAST::GetError() ) continue;
+		if( **itType == *BuiltinTypeAST::GetError() ) continue;
 
 		// Add the type to our map
 		m_parseScope.types[(*itType)->GetName()]= *itType;
@@ -333,7 +333,7 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 		shared_ptr<const TypeAST> pType( parseType() );
 
 		// Prevent void arguments
-		if( *pType == *TypeAST::GetVoid() ) {
+		if( *pType == *BuiltinTypeAST::GetVoid() ) {
 			cerr << "Cannot have an argument of type void, while parsing function prototype argument list\n";
 			return null_ret;
 		} // end if void type
@@ -370,7 +370,7 @@ pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> Parser::parseFunctionDec
 	// We allow functions to indicate that they return no type by simply
 	// omitting the arrow and type. Therefore, we can have either an arrow,
 	// semicolon, or brace
-	shared_ptr<const TypeAST> pReturnType= TypeAST::GetVoid();
+	shared_ptr<const TypeAST> pReturnType= BuiltinTypeAST::GetVoid();
 
 	// If we have an arrow, parse the return type
 	if( m_pLexer->GetCurrentToken() == TOKEN_ARROW ) {
@@ -646,7 +646,7 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	} // end if type not found
 
 	// Disallow variables of type "void"
-	if( *pType == *TypeAST::GetVoid() ) {
+	if( *pType == *BuiltinTypeAST::GetVoid() ) {
 		cerr << "Cannot declare a variable of type \"void\"\n";
 		return NULL;
 	} // end if void
@@ -994,7 +994,7 @@ shared_ptr<ForAST> Parser::parseForStatement() {
 
 	// Check that the condition expression has type "bool"
 	// TODO: Check convertability once we add casting?
-	if( pCondition->GetType() != TypeAST::GetBool() ) {
+	if( pCondition->GetType() != BuiltinTypeAST::GetBool() ) {
 		cerr << "For statement condition expression must evaluate to bool\n";
 		return NULL;
 	} // end if non-bool condition

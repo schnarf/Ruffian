@@ -1,16 +1,42 @@
 #pragma once
 
-class CodegenContext; class CodegenScope; class Scope;
+class CodegenContext; class CodegenScope; class Scope; class BuiltinTypeAST;
 
 //! AST node for types, like "int" or a user-defined type
 class TypeAST {
 public:
 	//! Initialize with type name
 	TypeAST( const string& strType ) : m_strType(strType) {}
+
 	//! Returns our type name
 	const string& GetName() const { return m_strType; }
 
-	virtual const llvm::Type* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual const llvm::Type* Codegen( CodegenContext& context, CodegenScope& scope ) const= 0;
+
+	//! Returns whether this type is builtin
+	bool IsBuiltin() const;
+	//! Casts this type to a builtin, returning NULL if it's not a builtin
+	const BuiltinTypeAST* ToBuiltin() const;
+
+	//! Returns our size in bytes
+	virtual uint GetSizeBytes() const= 0;
+	
+	//! Compares two types
+	bool operator==( const TypeAST& rhs ) const { return isEqual( rhs ); }
+	//! Compare for non-equality
+	bool operator!=( const TypeAST& rhs ) const { return !(*this == rhs); }
+protected:
+	virtual bool isEqual( const TypeAST& rhs ) const= 0;
+private:
+	string m_strType;
+}; // end class TypeAST
+
+
+//! Basic built-in types
+class BuiltinTypeAST : public TypeAST {
+public:
+	//! Initialize with type name
+	BuiltinTypeAST( const string& strType ) : TypeAST(strType) {}
 
 	//! Returns the static instance of the "char" type
 	static const shared_ptr<const TypeAST>& GetChar() { return m_pTypeChar; }
@@ -79,20 +105,21 @@ public:
 		return false;
 	} // end IsBuiltinTypeName()
 
-	//! Returns whether this type is builtin
-	bool IsBuiltin() const { return IsBuiltinTypeName(m_strType); }
 	//! Returns whether this type is integral
 	bool IsIntegral() const { return IsSigned() || IsUnsigned(); }
 	//! Returns whether this type is floating-point
-	bool IsFloatingPoint() const { return m_strType == "float" || m_strType == "double"; }
+	bool IsFloatingPoint() const { return GetName() == "float" || GetName() == "double"; }
 	//! Returns whether this type is arithmetic
 	bool IsArithmetic() const { return IsIntegral() || IsFloatingPoint(); }
 	//! Returns whether this type is signed integral
-	bool IsSigned() const { return m_strType == "char" || m_strType == "short" || m_strType == "int" || m_strType == "long"; }
+	bool IsSigned() const { return GetName() == "char" || GetName() == "short" || GetName() == "int" || GetName() == "long"; }
 	//! Returns whether this type is unsigned integral
-	bool IsUnsigned() const { return m_strType == "uchar" || m_strType == "ushort" || m_strType == "uint" || m_strType == "ulong"; }
+	bool IsUnsigned() const { return GetName() == "uchar" || GetName() == "ushort" || GetName() == "uint" || GetName() == "ulong"; }
+
+	virtual const llvm::Type* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+
 	//! Returns the size in bytes
-	uint GetSizeBytes() const {
+	virtual uint GetSizeBytes() const {
 		if( *this == *GetChar() || *this == *GetUChar() ) return 1;
 		if( *this == *GetShort() || *this == *GetUShort() ) return 2;
 		if( *this == *GetInt() || *this == *GetUInt() ) return 4;
@@ -105,15 +132,16 @@ public:
 		ASSERT( false );
 		return 0;
 	} // end GetSizeBytes()
-
-	//! Compares two types
-	bool operator==( const TypeAST& rhs ) const { return m_strType == rhs.m_strType; }
-	//! Compare for non-equality
-	bool operator!=( const TypeAST& rhs ) const { return !(*this == rhs); }
+protected:
+	virtual bool isEqual( const TypeAST& rhs ) const {
+		if( dynamic_cast<const BuiltinTypeAST*>(&rhs) ) {
+			return GetName() == rhs.GetName();
+		} else {
+			return false;
+		}
+	} // end isEqual()
 private:
-	string m_strType;
-
-	//! Built-in types
+	//! Built-in type static instances
 	static shared_ptr<const TypeAST> m_pTypeChar,
 	                                 m_pTypeShort,
 									 m_pTypeInt,
@@ -127,4 +155,9 @@ private:
 				                     m_pTypeBool,
 				                     m_pTypeVoid,
 				                     m_pTypeError;
-}; // end class TypeAST
+}; // end class BuiltinTypeAST
+
+//! Returns whether this type is builtin
+inline bool TypeAST::IsBuiltin() const { return ToBuiltin() != NULL; }
+//! Casts this type to a builtin, returning NULL if it's not a builtin
+inline const BuiltinTypeAST* TypeAST::ToBuiltin() const { return dynamic_cast<const BuiltinTypeAST*>(this); }
