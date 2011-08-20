@@ -5,6 +5,7 @@
 #include "Parser.h"
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include "llvm/Support/DynamicLibrary.h"
 
 static void printInt( int i ) {
@@ -22,6 +23,10 @@ static void printFloat( float f ) {
 static void printDouble( double f ) {
 	cout << f << endl;
 } // end printDouble()
+
+static int rand_lib() {
+	return rand();
+} // end rand_lib()
 
 int main( int argc, char* argv[] ) {
 
@@ -83,6 +88,14 @@ int main( int argc, char* argv[] ) {
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
 		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printDouble", pCodegen->GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printDouble", (void*)printDouble );
+	}
+
+	{
+		vector<const llvm::Type*> pArgTypes;
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getInt32Ty(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "rand", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "rand", (void*)rand_lib );
+		srand( time(NULL) );
 	}
 
 	bool bCodegenSuccess= pCodegen->Run( pModule );
