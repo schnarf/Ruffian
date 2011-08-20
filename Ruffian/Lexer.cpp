@@ -52,6 +52,7 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_IF: return "if";
 	case TOKEN_ELSE: return "else";
 	case TOKEN_FOR: return "for";
+	case TOKEN_ARRAYSIZE: return "arraysize";
 	case TOKEN_LITERAL_INT: return "int literal";
 	case TOKEN_LITERAL_FLOAT: return "float literal";
 	case TOKEN_LITERAL_BOOL: return "bool literal";
@@ -130,6 +131,7 @@ Token Lexer::getTok() {
 		else if( m_strIdentifier == "if" ) return TOKEN_IF;
 		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;
 		else if( m_strIdentifier == "for" ) return TOKEN_FOR;
+		else if( m_strIdentifier == "arraysize" ) return TOKEN_ARRAYSIZE;
 		else if( m_strIdentifier == "true" || m_strIdentifier == "false" ) { m_strLiteral= m_strIdentifier; return TOKEN_LITERAL_BOOL; }
 		else return TOKEN_IDENTIFIER;
 	} // end if starts with alphabetic character

@@ -80,18 +80,18 @@ def insertion_sort( int[] a, int n ) {
 }
 
 def main(int n) -> int {
-	int[5] array;
+	int[10] array;
 
-	for( int i=0; i<5; ++i ) {
+	for( int i=0; i<arraysize(array); ++i ) {
 		array[i]= rand();
 	}
 
-	printIntArray( array, 5 );
+	printIntArray( array, arraysize(array) );
 	
-	insertion_sort( array, 5 );
+	insertion_sort( array, arraysize(array) );
 
 	printNewline();
-	printIntArray( array, 5 );
+	printIntArray( array, arraysize(array) );
 
 	return 0;
 }

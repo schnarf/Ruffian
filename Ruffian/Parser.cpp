@@ -70,6 +70,7 @@ shared_ptr<ExprAST> Parser::parsePrimaryExpression() {
 		::= identifier_expr
 		::= literal_expr
 		::= paren_expr
+		::= arraysize_expr
 	*/
 
 	// We expect an identifier, literal, or lparen
@@ -84,8 +85,11 @@ shared_ptr<ExprAST> Parser::parsePrimaryExpression() {
 	} else if( m_pLexer->GetCurrentToken() == TOKEN_LPAREN ) {
 		pExpr= parseParenExpression();
 		if( !pExpr ) cerr << "Could not parse parenthesized expression for primary expression\n";
+	} else if( m_pLexer->GetCurrentToken() == TOKEN_ARRAYSIZE ) {
+		pExpr= parseArraySizeExpression();
+		if( !pExpr ) cerr << "Could not parse arraysize expression for primary expression\n";
 	} else {
-		cerr << "Expected identifier, literal, or '(' while parsing primary expression\n";
+		cerr << "Expected identifier, literal, '(', or \"arraysize\" while parsing primary expression\n";
 		return NULL;
 	}
 
@@ -182,6 +186,61 @@ shared_ptr<ExprAST> Parser::parseParenExpression() {
 
 	return pExpr;
 } // end Parser::parseParenExpression()
+
+
+//! Parses an arraysize expression
+shared_ptr<ExprAST> Parser::parseArraySizeExpression() {
+	/*
+	arraysize_expr
+		::= 'arraysize' '(' identifier ')'
+	*/
+
+	// Eat 'arraysize'
+	m_pLexer->GetNextToken();
+
+	// Eat the lparen
+	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
+		cerr << "Expected '(' after 'arraysize'\n";
+		return NULL;
+	} // end if no lparen
+	m_pLexer->GetNextToken();
+
+	// Parse the identifier
+	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
+		cerr << "Expected identifier in arraysize expression\n";
+		return NULL;
+	} // end if no identifier
+	const string strName= m_pLexer->GetIdentifier();
+	m_pLexer->GetNextToken();
+
+	// Eat the rparen
+	if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+		cerr << "Expected ')' at end of arraysize expression\n";
+		return NULL;
+	} // end if no rparen
+	m_pLexer->GetNextToken();
+
+	// Look up the variable in scope, and verify that it's an array with a length specified
+	shared_ptr<DeclarationAST> pDeclaration= findVariableInScope( strName );
+	if( !pDeclaration ) {
+		cerr << "Cannot find the arraysize of \"" + strName + "\" because it was not declared in scope\n";
+		return NULL;
+	} // end if no declaration
+
+	shared_ptr<const ArrayTypeAST> pArrayType= dynamic_pointer_cast<const ArrayTypeAST>(pDeclaration->GetType());
+	if( !pArrayType ) {
+		cerr << "Cannot find the arraysize of \"" + strName + "\" because it is not an array\n";
+		return NULL;
+	} // end if not array
+
+	shared_ptr<ExprAST> pSize= pArrayType->GetLengthExpression();
+	if( !pSize ) {
+		cerr << "Cannot find the arraysize of \"" + strName + "\" because it has no size\n";
+		return NULL;
+	} // end if no size
+
+	return pSize;
+} // end Parser::parseArraySizeExpression()
 
 
 //! Parses a unary operator expression

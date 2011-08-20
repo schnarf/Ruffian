@@ -27,6 +27,8 @@ private:
 	shared_ptr<LiteralAST> parseLiteralExpression();
 	//! Parses a parenthesized expression
 	shared_ptr<ExprAST> parseParenExpression();
+	//! Parses an arraysize expression
+	shared_ptr<ExprAST> parseArraySizeExpression();
 
 	//! Parses a unary operator expression
 	shared_ptr<ExprAST> parseUnaryOpExpression();
