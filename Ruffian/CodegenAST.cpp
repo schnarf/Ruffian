@@ -19,8 +19,12 @@ namespace {
 		const Type* pType= NULL;
 		Value* pArrayLength= NULL;
 		if( shared_ptr<const ArrayTypeAST> pArrayType= dynamic_pointer_cast<const ArrayTypeAST>(pTypeNode) ) {
-			pType= pArrayType->GetElementType()->Codegen( context, scope );
-			pArrayLength= pArrayType->GetLengthExpression()->Codegen( context, scope );
+			if( pArrayType->GetLengthExpression() ) {
+				pType= pArrayType->GetElementType()->Codegen( context, scope );
+				pArrayLength= pArrayType->GetLengthExpression()->Codegen( context, scope );
+			} else {
+				pType= pArrayType->GetElementType()->Codegen( context, scope )->getPointerTo();
+			}
 		} else {
 			pType= pTypeNode->Codegen( context, scope );
 		}
@@ -48,9 +52,16 @@ Value* BoolAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 
 Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	// Codegen the variable's address and load it
+	// Codegen the variable's address
 	Value* pAddress= CodegenLValue( context, scope );
 	if( !pAddress ) return ErrorCodegen( "Could not generate VariableAST address" );
+
+	// If this is an array type, let it decay to a pointer to the first element
+	if( shared_ptr<const ArrayTypeAST> pArrayType= dynamic_pointer_cast<const ArrayTypeAST>(m_pDeclaration->GetType()) ) {
+		return context.GetBuilder().CreatePointerCast( pAddress, pArrayType->GetElementType()->Codegen(context, scope)->getPointerTo(), "array_ptr_decay" );
+	} // end if array type
+
+	// Load the value
 	return context.GetBuilder().CreateLoad( pAddress, m_pDeclaration->GetName() );
 } // end VariableAST::Codegen()
 
@@ -61,6 +72,7 @@ Value* VariableAST::CodegenLValue( CodegenContext& context, CodegenScope& scope 
 	AllocaInst* pAlloca= scope.LookupVariable( strName );
 	if( !pAlloca ) return ErrorCodegen( string("Variable \"") + strName + "\" was not defined in the current scope" );
 
+	// Return our address
 	return pAlloca;
 } // end VariableAST::CodegenLValue()
 
@@ -83,9 +95,14 @@ Value* ArrayRefAST::CodegenLValue( CodegenContext& context, CodegenScope& scope 
 	Value* pIndex= m_pIndex->Codegen( context, scope );
 	if( !pIndex ) return ErrorCodegen( "Could not generate code for array index" );
 
+	// Treat it as a pointer if we have no length expression
+	Value* pBaseAddr= pAlloca;
+	if( !dynamic_pointer_cast<const ArrayTypeAST>(GetDeclaration()->GetType())->GetLengthExpression() ) {
+		pBaseAddr= context.GetBuilder().CreateLoad( pBaseAddr, "ptrtmp" );
+	} // end if no length
+
 	// Compute the element address
-	Value* pElement= context.GetBuilder().CreateGEP( pAlloca, pIndex, "array_elem_addr" );
-	return pElement;
+	return context.GetBuilder().CreateGEP( pBaseAddr, pIndex, "array_elem_addr" );
 } // end ArrayRefAST::CodegenLValue()
 
 
@@ -310,7 +327,8 @@ Value* CallAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 	// Codegen function arguments
 	vector<Value*> pArgs;
-	for( uint i=0; i<m_pArgs.size(); ++i ) {
+	Function::ArgumentListType::iterator itArg= pFunction->getArgumentList().begin();
+	for( uint i=0; i<m_pArgs.size(); ++i, ++itArg ) {
 		pArgs.push_back( m_pArgs[i]->Codegen(context, scope) );
 		if( !pArgs.back() ) return ErrorCodegen( "Error generating function argument in call expression\n" );
 	} // end for argument
@@ -413,6 +431,11 @@ Function* FunctionAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 
 	// Codegen the body
 	m_pBody->Codegen( context, scope );
+
+	// If the function returns nothing, add a return statement at the end of the block
+	if( !m_pBody->HasReturn() && *m_pPrototype->GetReturnType() == *BuiltinTypeAST::GetVoid() ) {
+		context.GetBuilder().CreateRetVoid();
+	} // end if returning void
 
 	// Validate the generated code, checking for consistency
 	verifyFunction( *pFunction );

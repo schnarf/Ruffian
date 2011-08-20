@@ -739,12 +739,16 @@ shared_ptr<const TypeAST> Parser::parseType() {
 		// Eat the left bracket
 		m_pLexer->GetNextToken();
 
-		// Parse an expression for the array length
-		shared_ptr<ExprAST> pArrayLen= parseExpression();
-		if( !pArrayLen ) {
-			cerr << "Could not parse expression for array length while parsing type\n";
-			return NULL;
-		} // end if parse error
+		// If we have a right bracket, skip parsing the array length
+		shared_ptr<ExprAST> pArrayLen;
+		if( m_pLexer->GetCurrentToken() != TOKEN_RBRACKET ) {
+			// Parse an expression for the array length
+			pArrayLen= parseExpression();
+			if( !pArrayLen ) {
+				cerr << "Could not parse expression for array length while parsing type\n";
+				return NULL;
+			} // end if parse error
+		} // end if parsing length
 
 		// We expect a right bracket
 		if( m_pLexer->GetCurrentToken() != TOKEN_RBRACKET ) {

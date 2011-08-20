@@ -60,6 +60,12 @@ def printFloat(float f);
 def printDouble(double f);
 def printNewline();
 
+def printIntArray( int[] array, int n ) {
+	for( int i=0; i<n; ++i ) {
+		printInt( array[i] );
+	}
+}
+
 def main(int n) -> int {
 	int[5] array;
 
@@ -67,9 +73,7 @@ def main(int n) -> int {
 		array[i]= factorial(i);
 	}
 
-	for( int i=0; i<5; ++i ) {
-		printInt( array[i] );
-	}
+	printIntArray( array, 5 );
 
 	return 0;
 }
