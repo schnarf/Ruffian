@@ -28,6 +28,8 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_RPAREN: return ")";
 	case TOKEN_LBRACE: return "{";
 	case TOKEN_RBRACE: return "}";
+	case TOKEN_LBRACKET: return "[";
+	case TOKEN_RBRACKET: return "]";
 	case TOKEN_COMMA: return ",";
 	case TOKEN_SEMICOLON: return ";";
 	case TOKEN_ARROW: return "->";
@@ -225,6 +227,8 @@ Token Lexer::getTok() {
 	case ')': token= TOKEN_RPAREN; bEatChar= true; break;
 	case '{': token= TOKEN_LBRACE; bEatChar= true; break;
 	case '}': token= TOKEN_RBRACE; bEatChar= true; break;
+	case '[': token= TOKEN_LBRACKET; bEatChar= true; break;
+	case ']': token= TOKEN_RBRACKET; bEatChar= true; break;
 	case ',': token= TOKEN_COMMA; bEatChar= true; break;
 	case ';': token= TOKEN_SEMICOLON; bEatChar= true; break;
 	case '<':

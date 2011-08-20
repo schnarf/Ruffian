@@ -1,12 +1,14 @@
 #pragma once
 
-class CodegenContext; class CodegenScope; class Scope; class BuiltinTypeAST;
+class CodegenContext; class CodegenScope; class Scope; class BuiltinTypeAST; class ExprAST;
 
 //! AST node for types, like "int" or a user-defined type
 class TypeAST {
 public:
 	//! Initialize with type name
 	TypeAST( const string& strType ) : m_strType(strType) {}
+	//! Virtual destructor for polymorphic deleteion
+	~TypeAST() {}
 
 	//! Returns our type name
 	const string& GetName() const { return m_strType; }
@@ -161,3 +163,31 @@ private:
 inline bool TypeAST::IsBuiltin() const { return ToBuiltin() != NULL; }
 //! Casts this type to a builtin, returning NULL if it's not a builtin
 inline const BuiltinTypeAST* TypeAST::ToBuiltin() const { return dynamic_cast<const BuiltinTypeAST*>(this); }
+
+//! Array type
+class ArrayTypeAST : public TypeAST {
+public:
+	//! Initialize with base type and length expression
+	ArrayTypeAST( const shared_ptr<const TypeAST>& pType, const shared_ptr<ExprAST>& pLengthExpr ) : TypeAST(pType->GetName() + "[]"), m_pType(pType), m_pLengthExpr(pLengthExpr) {}
+
+	//! Gets the type of our array elements
+	const shared_ptr<const TypeAST>& GetElementType() const { return m_pType; }
+	//! Gets our length expression
+	const shared_ptr<ExprAST>& GetLengthExpression() const { return m_pLengthExpr; }
+
+	virtual const llvm::Type* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	//! Returns our size in bytes
+	// TODO: Not this!
+	virtual uint GetSizeBytes() const { return llvm::Type::getInt32PtrTy(llvm::getGlobalContext())->getScalarSizeInBits() / 8; };
+protected:
+	virtual bool isEqual( const TypeAST& rhs ) const {
+		if( const ArrayTypeAST* pOtherArray= dynamic_cast<const ArrayTypeAST*>(&rhs) ) {
+			return *GetElementType() == *pOtherArray->GetElementType();
+		} else {
+			return false;
+		}
+	} // end isEqual()
+private:
+	shared_ptr<const TypeAST> m_pType;
+	shared_ptr<ExprAST> m_pLengthExpr;
+}; // end class ArrayTypeAST

@@ -100,6 +100,7 @@ shared_ptr<ExprAST> Parser::parseIdentifierExpression() {
 		::= identifier
 		::= call_expr
 		::= cast_expr
+		::= array_ref_expr
 	*/
 
 	// This is a variable, or a cast/function call. Determine this by whether the next token is a lparen.
@@ -113,9 +114,37 @@ shared_ptr<ExprAST> Parser::parseIdentifierExpression() {
 		else return parseCallExpression( strName );
 	} // end if lparen
 
+	// Check for '[', which indicates an array reference
+	if( m_pLexer->GetCurrentToken() == TOKEN_LBRACKET ) {
+		// Look up the array declaration
+		shared_ptr<DeclarationAST> pDeclaration= findVariableInScope( strName );
+		if( !pDeclaration ) {
+			cerr << "Could not find array " + strName + " in scope\n";
+			return NULL;
+		} // end if not declared
+
+		// Eat the left bracket, and parse the index expression
+		m_pLexer->GetNextToken();
+
+		shared_ptr<ExprAST> pIndex= parseExpression();
+		if( !pIndex ) {
+			cerr << "Could not parse array index expression\n";
+			return NULL;
+		} // end if error
+
+		// Eat the right brackets
+		if( m_pLexer->GetCurrentToken() != TOKEN_RBRACKET ) {
+			cerr << "Expected ']' after array index expression\n";
+			return NULL;
+		} // end if no right bracket
+		m_pLexer->GetNextToken();
+
+		// Create the array reference expression
+		return shared_ptr<ExprAST>( new ArrayRefAST(pDeclaration, pIndex) );		
+	} // end if array reference
+
 	// If we're here, this is a variable reference
 	// Look up the declaration, and give an error if it hasn't been declared
-	// Eat the identifier
 	shared_ptr<DeclarationAST> pDeclaration= findVariableInScope( strName );
 	// Only create an AST node if the declaration exists
 	if( pDeclaration ) return shared_ptr<ExprAST>( new VariableAST(pDeclaration) );
@@ -162,6 +191,7 @@ shared_ptr<ExprAST> Parser::parseUnaryOpExpression() {
 		::= primary_expression
 		::= pre_unary_op unary_op_expr
 		::= unary_op_expr post_unary_op
+		::= unary_op_expr '[' expression ']'
 	*/
 
 	// Check for a prefix unary operator
@@ -196,8 +226,7 @@ shared_ptr<ExprAST> Parser::parseUnaryOpExpression() {
 		return NULL;
 	} // end if parse error
 
-	// Now, if we have a postfix unary operator token, create the AST node,
-	// or otherwise just return the primary expression we parsed
+	// Now, if we have a postfix unary operator token, create the AST node for it
 	if( Lexer::IsPostUnaryOpToken(m_pLexer->GetCurrentToken()) ) {
 		// Store and eat the token
 		Token op= m_pLexer->GetCurrentToken();
@@ -597,18 +626,22 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 //! Parses a variable declaration
 shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	/* variable_declaration
-		::= identifier identifier ';'
-		::= identifier identifier '=' expression ';'
+		::= type identifier ';'
+		::= type identifier '=' expression ';'
 	*/
 
-	// Parse the type identifier
-	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-		cerr << "Expected an identifier while parsing a variable declaration\n";
+	// Parse the type
+	shared_ptr<const TypeAST> pType= parseType();
+	if( !pType ) {
+		cerr << "Could not parse type for variable declaration\n";
 		return NULL;
-	} // end if no type identifier
+	} // end if could not parse type
 
-	string strType= m_pLexer->GetIdentifier();
-	m_pLexer->GetNextToken();
+	// Disallow variables of type "void"
+	if( *pType == *BuiltinTypeAST::GetVoid() ) {
+		cerr << "Cannot declare a variable of type \"void\"\n";
+		return NULL;
+	} // end if void
 
 	// Now parse the variable identifier
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
@@ -637,19 +670,6 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	// Now eat the current token, which we expect to be a semicolon
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
 	m_pLexer->GetNextToken();
-
-	// Lookup and verify that our type exists
-	shared_ptr<const TypeAST> pType= findTypeInScope( strType );
-	if( !pType ) {
-		cerr << "Type \"" + strType + "\" was not declared in scope while parsing a variable declaration\n";
-		return NULL;
-	} // end if type not found
-
-	// Disallow variables of type "void"
-	if( *pType == *BuiltinTypeAST::GetVoid() ) {
-		cerr << "Cannot declare a variable of type \"void\"\n";
-		return NULL;
-	} // end if void
 
 	// Check for implicit casts if we have an initializer
 	if( pInitializer ) {
@@ -713,6 +733,31 @@ shared_ptr<const TypeAST> Parser::parseType() {
 		cerr << "Type \"" + strName + "\" was not declared in scope\n";
 		return NULL;
 	} // end if not found
+
+	// Check for a '[', which would indicate an array type
+	if( m_pLexer->GetCurrentToken() == TOKEN_LBRACKET ) {
+		// Eat the left bracket
+		m_pLexer->GetNextToken();
+
+		// Parse an expression for the array length
+		shared_ptr<ExprAST> pArrayLen= parseExpression();
+		if( !pArrayLen ) {
+			cerr << "Could not parse expression for array length while parsing type\n";
+			return NULL;
+		} // end if parse error
+
+		// We expect a right bracket
+		if( m_pLexer->GetCurrentToken() != TOKEN_RBRACKET ) {
+			cerr << "Expected ']' after array length expression while parsing type\n";
+			return NULL;
+		} // end if no ']'
+
+		// Eat the right bracket
+		m_pLexer->GetNextToken();
+
+		// Build the array type
+		pType.reset( new ArrayTypeAST(pType, pArrayLen) );
+	} // end if array type
 
 	return pType;
 } // end Parser::parseType()

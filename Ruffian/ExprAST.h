@@ -7,6 +7,8 @@ class CodegenScope;
 class DeclarationAST;
 class PrototypeAST;
 class TypeAST;
+class IntegerAST;
+class DoubleAST;
 
 //! AST node abstract base for expressions.
 //! Expressions evaluate to some value that has a type
@@ -42,13 +44,29 @@ public:
 	//! Returns our variable name
 	const string& GetName() const;
 	//! Returns our declaration statement AST node
-	shared_ptr<const DeclarationAST> GetDeclaration() { ASSERT( m_pDeclaration ); return m_pDeclaration; }
+	shared_ptr<const DeclarationAST> GetDeclaration() const { ASSERT( m_pDeclaration ); return m_pDeclaration; }
 	
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual Value* CodegenLValue( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	shared_ptr<DeclarationAST> m_pDeclaration;			//!< Points to the declaration statement that initialized us, must be set.
 }; // end VariableAST
+
+
+//! Array reference AST node
+class ArrayRefAST : public VariableAST {
+public:
+	//! Initialize with reference to array declaration and index expression
+	ArrayRefAST( const shared_ptr<DeclarationAST>& pDeclaration, const shared_ptr<ExprAST>& pIndex ) : VariableAST(pDeclaration), m_pIndex(pIndex) {}
+
+	virtual const shared_ptr<const TypeAST>& GetType() const;
+	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
+	virtual Value* CodegenLValue( CodegenContext& context, CodegenScope& scope ) const;
+	virtual bool IsConstant() const { return false; }
+private:
+	shared_ptr<ExprAST> m_pIndex;
+}; // end class ArrayRefAST
 
 
 //! Binary operator AST node
@@ -59,7 +77,7 @@ public:
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
-	virtual bool IsConstant() const { return m_pLeft->IsConstant() && m_pRight->IsConstant(); }
+	virtual bool IsConstant() const { return (m_binop == TOKEN_ASSIGN || m_pLeft->IsConstant()) && m_pRight->IsConstant(); }
 private:
 	Token m_binop;
 	shared_ptr<ExprAST> m_pLeft,
@@ -82,7 +100,7 @@ private:
 }; // end class PrefixUnaryAST
 
 
-//! Postfix unary operator AST node
+//! Postfix unary operator AST node given an expression and token for the operator
 class PostfixUnaryAST : public ExprAST {
 public:
 	//! Initialize with operator and operator

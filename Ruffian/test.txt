@@ -61,42 +61,15 @@ def printDouble(double f);
 def printNewline();
 
 def main(int n) -> int {
-	double d= 3.4;
-	printDouble( d );
-	d= 4.5;
-	printDouble( d );
-	printDouble( 1.2 );
-	printNewline();
+	int[5] array;
 
-	float f= 8.5;
-	printFloat( f );
-	printNewline();
+	for( int i=0; i<5; ++i ) {
+		array[i]= factorial(i);
+	}
 
-	double d2= f;
-	printDouble( d2 );
-	printNewline();
+	for( int i=0; i<5; ++i ) {
+		printInt( array[i] );
+	}
 
-	printDouble( d2 * f );
-	printFloat( float(d2) );
-	printDouble( float(2.3) );
-	printDouble( double(f) );
-
-	printNewline();
-
-	printInt( int(2.3) );
-	printInt( int(float(5)) );
-	printFloat( float(int(true)) );
-	printInt( int(true) );
-	printInt( int(false) );
-
-	int a= -2;
-	uint b= 4;
-	float c= 5;
-	double e= 8;
-	float g= 292030.0283912389123;
-	double h= 1e300;
-	printDouble( h );
-	printFloat( float(h) );
-
-	return fibonacci(n);
+	return 0;
 }

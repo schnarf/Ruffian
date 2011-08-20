@@ -47,7 +47,7 @@ private:
 	shared_ptr<ExprAST> parseExpression();
 	//! Parses a return statement
 	shared_ptr<ReturnAST> parseReturnStatement();
-	//! Parses a variable declaration statement, with the type already parsed
+	//! Parses a variable declaration
 	shared_ptr<DeclarationAST> parseVariableDeclaration();
 	//! Parses a variable identifier
 	shared_ptr<VariableAST> parseVariable();

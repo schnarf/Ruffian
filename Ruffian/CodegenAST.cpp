@@ -14,9 +14,19 @@ namespace {
 	} // end ErrorCodegen()
 
 	//! Create an alloca instruction in the entry block of the function
-	AllocaInst* CreateEntryBlockAlloca( CodegenContext& context, CodegenScope& scope, Function* pFunction, const string& strName, const Type* pType ) {
-	  IRBuilder<> tempBuilder( &pFunction->getEntryBlock(), pFunction->getEntryBlock().begin() );
-	  return tempBuilder.CreateAlloca( pType, 0, strName.c_str() );
+	AllocaInst* CreateEntryBlockAlloca( CodegenContext& context, CodegenScope& scope, Function* pFunction, const string& strName, const shared_ptr<const TypeAST>& pTypeNode ) {
+		// Codegen our type and optional array length
+		const Type* pType= NULL;
+		Value* pArrayLength= NULL;
+		if( shared_ptr<const ArrayTypeAST> pArrayType= dynamic_pointer_cast<const ArrayTypeAST>(pTypeNode) ) {
+			pType= pArrayType->GetElementType()->Codegen( context, scope );
+			pArrayLength= pArrayType->GetLengthExpression()->Codegen( context, scope );
+		} else {
+			pType= pTypeNode->Codegen( context, scope );
+		}
+
+		IRBuilder<> tempBuilder( &pFunction->getEntryBlock(), pFunction->getEntryBlock().begin() );
+		return tempBuilder.CreateAlloca( pType, pArrayLength, strName.c_str() );
 	} // end CreateEntryBlockAlloca()
 } // end file-scope
 
@@ -38,12 +48,45 @@ Value* BoolAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 
 Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	// Look up the variable in the scope and load it
+	// Codegen the variable's address and load it
+	Value* pAddress= CodegenLValue( context, scope );
+	if( !pAddress ) return ErrorCodegen( "Could not generate VariableAST address" );
+	return context.GetBuilder().CreateLoad( pAddress, m_pDeclaration->GetName() );
+} // end VariableAST::Codegen()
+
+
+Value* VariableAST::CodegenLValue( CodegenContext& context, CodegenScope& scope ) const {
+	// Look up the variable in the scope
 	const string& strName= m_pDeclaration->GetName();
 	AllocaInst* pAlloca= scope.LookupVariable( strName );
 	if( !pAlloca ) return ErrorCodegen( string("Variable \"") + strName + "\" was not defined in the current scope" );
-	else return context.GetBuilder().CreateLoad( pAlloca, strName );
-} // end VariableAST::Codegen()
+
+	return pAlloca;
+} // end VariableAST::CodegenLValue()
+
+
+Value* ArrayRefAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	// Codegen the lvalue and load it
+	Value* pElement= CodegenLValue( context, scope );
+	if( !pElement ) return ErrorCodegen( "Could not generate ArrayRefAST element address" );
+	return context.GetBuilder().CreateLoad( pElement, "array_element" );
+} // end ArrayRefAST::Codegen()
+
+
+Value* ArrayRefAST::CodegenLValue( CodegenContext& context, CodegenScope& scope ) const {
+	// Look up the array declaration in scope
+	const string& strName= GetDeclaration()->GetName();
+	AllocaInst* pAlloca= scope.LookupVariable( strName );
+	if( !pAlloca ) return ErrorCodegen( string("Array \"") + strName + "\" was not defined in the current scope" );
+
+	// Codegen the index
+	Value* pIndex= m_pIndex->Codegen( context, scope );
+	if( !pIndex ) return ErrorCodegen( "Could not generate code for array index" );
+
+	// Compute the element address
+	Value* pElement= context.GetBuilder().CreateGEP( pAlloca, pIndex, "array_elem_addr" );
+	return pElement;
+} // end ArrayRefAST::CodegenLValue()
 
 
 Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
@@ -53,16 +96,15 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pLeft );
 		if( !pVariable ) return ErrorCodegen( "Left-hand side of assignment expression must be a variable" );
 
-		// Lookup the lhs
-		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
-		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating assignment expression" );
+		// Lookup the lhsn
+		Value* pTargetAddr= pVariable->CodegenLValue( context, scope );
 
 		// Codegen the RHS
 		Value* pValue= m_pRight->Codegen( context, scope );
 		if( !pValue ) return ErrorCodegen( "Couldn't generate code for rhs in assignment expression" );
 
 		// Create the store instruction
-		context.GetBuilder().CreateStore( pValue, pAlloca );
+		context.GetBuilder().CreateStore( pValue, pTargetAddr );
 
 		// We return the variable as our value
 		return pVariable->Codegen( context, scope );
@@ -361,7 +403,7 @@ Function* FunctionAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 	Function::arg_iterator itArg= pFunction->arg_begin();
 	for( uint iArg=0; iArg<GetArgs().size(); ++iArg, ++itArg ) {
 		// Create the alloca for this variable
-		AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetArgs()[iArg]->GetName(), GetArgs()[iArg]->GetType()->Codegen(context, scope) );
+		AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetArgs()[iArg]->GetName(), GetArgs()[iArg]->GetType() );
 		// Store the initial value into the alloca
 		// TODO: is this necessary/correct?
 		context.GetBuilder().CreateStore( itArg, pAlloca );
@@ -411,7 +453,7 @@ void DeclarationAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 		if( !pInitVal ) { ErrorCodegen( string("Error emitting code for initializer for the declaration of variable \"") + GetName() + "\"" ); return; }
 	}
 
-	AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetName(), m_pType->Codegen(context, scope) );
+	AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetName(), m_pType );
 	if( m_pInitializer ) context.GetBuilder().CreateStore( pInitVal, pAlloca );
 
 	// Register the binding
@@ -545,10 +587,37 @@ const Type* BuiltinTypeAST::Codegen( CodegenContext& context, CodegenScope& scop
 	else if( *this == *GetBool() ) return Type::getInt1Ty(getGlobalContext());
 	else if( *this == *GetVoid() ) return Type::getVoidTy(getGlobalContext());
 	else {
-		cerr << "Unknown builtin type \"" << GetName() << "\"";
+		cerr << "Unknown builtin type \"" << GetName() << "\"\n";
 		return NULL;
 	}
 } // end BuiltinTypeAST::Codegen()
+
+
+const Type* ArrayTypeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+	// Codegen our element type
+	const Type* pElementType= m_pType->Codegen( context, scope );
+	if( !pElementType ) {
+		cerr << "Could not generate array element type\n";
+		return NULL;
+	} // end if error
+
+	// If we have no length, this is really a pointer
+	if( !m_pLengthExpr ) {
+		return PointerType::get( pElementType, 0 );
+	} // end if no length
+
+	// Codegen the length, and make sure it's a constant integer value
+	Value* pLengthValue= m_pLengthExpr->Codegen( context, scope );
+	if( !isa<ConstantInt>(pLengthValue) ) {
+		cerr << "Array length must be a constant\n";
+		return NULL;
+	} // end if not constant int
+
+	ConstantInt* pLength= dyn_cast<ConstantInt>(pLengthValue);
+	uint64 uLength= pLength->getZExtValue();
+
+	return ArrayType::get( pElementType, uLength );
+} // end ArrayTypeAST::Codegen()
 
 
 //! Runs code generation for this module, returning TRUE on success and FALSE on failure
