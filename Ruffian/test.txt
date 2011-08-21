@@ -79,8 +79,59 @@ def insertion_sort( int[] a, int n ) {
 	}
 }
 
+// iLeft is the index of the leftmost array element
+// iRight is the index of the rightmost array element, inclusive
+// Arranges the elements between iLeft and iRight so that the ones
+// less than the pivot come before it, and the ones greater than
+// it come after, and moves the pivot into its final position, returning that position
+def partition( int[] a, int iLeft, int iRight, int iPivot ) -> int {
+	int iPivotValue= a[iPivot];
+	int temp;
+
+	// Move pivot to end
+	temp= a[iPivot];
+	a[iPivot]= a[iRight];
+	a[iRight]= temp;
+
+	int iStore= iLeft;
+	for( int i=iLeft; i<iRight; ++i ) {
+		if( a[i] < iPivotValue ) {
+			temp= a[i];
+			a[i]= a[iStore];
+			a[iStore]= temp;
+			iStore= iStore + 1;
+		}
+	}
+
+	// Move pivot to its final place
+	temp= a[iStore];
+	a[iStore]= a[iRight];
+	a[iRight]= temp;
+
+	return iStore;
+}
+
+def quicksort_helper( int[] a, int iLeft, int iRight ) {
+	// If the list is empty or one item, it's sorted
+	if( iLeft >= iRight ) { return; }
+
+	// Choose a pivot
+	int iPivot= (iLeft + iRight) / 2;
+
+	// Partition the array
+	int iNewPivot= partition( a, iLeft, iRight, iPivot );
+
+	// Recursively sort the left and right parts
+	quicksort_helper( a, iLeft, iNewPivot-1 );
+	quicksort_helper( a, iNewPivot+1, iRight );
+}
+
+def quicksort( int[] a, int n ) {
+	quicksort_helper( a, 0, n-1 );
+}
+
 def main(int n) -> int {
-	int[10] array;
+	int[100] array;
 
 	for( int i=0; i<arraysize(array); ++i ) {
 		array[i]= rand();
@@ -88,7 +139,7 @@ def main(int n) -> int {
 
 	printIntArray( array, arraysize(array) );
 	
-	insertion_sort( array, arraysize(array) );
+	quicksort( array, arraysize(array) );
 
 	printNewline();
 	printIntArray( array, arraysize(array) );

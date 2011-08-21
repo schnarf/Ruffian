@@ -56,11 +56,6 @@ Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) cons
 	Value* pAddress= CodegenLValue( context, scope );
 	if( !pAddress ) return ErrorCodegen( "Could not generate VariableAST address" );
 
-	// If this is an array type, let it decay to a pointer to the first element
-	if( shared_ptr<const ArrayTypeAST> pArrayType= dynamic_pointer_cast<const ArrayTypeAST>(m_pDeclaration->GetType()) ) {
-		return context.GetBuilder().CreatePointerCast( pAddress, pArrayType->GetElementType()->Codegen(context, scope)->getPointerTo(), "array_ptr_decay" );
-	} // end if array type
-
 	// Load the value
 	return context.GetBuilder().CreateLoad( pAddress, m_pDeclaration->GetName() );
 } // end VariableAST::Codegen()
@@ -352,31 +347,48 @@ Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// If this is an identity cast, just return the expression's code
 	if( *m_pExpr->GetType() == *m_pType ) return pValue;
 
-	// If this is not a builtin type, we can't do anything yet
-	if( !m_pExpr->GetType()->IsBuiltin() ) return ErrorCodegen( "Could not generate cast to non-builtin type" );
+	// If this is not a builtin type or array type, we can't do anything yet
+	if( !m_pExpr->GetType()->IsBuiltin() && !m_pExpr->GetType()->IsArray() ) return ErrorCodegen( "Could not generate cast to non-builtin or array type" );
 
-	// Floating point to floating point casts
-	if( m_pExpr->GetType()->ToBuiltin()->IsFloatingPoint() && m_pType->ToBuiltin()->IsFloatingPoint() )
-		return context.GetBuilder().CreateFPCast( pValue, pType, "fpcasttmp" );
+	// Handle builtin types
+	if( m_pExpr->GetType()->IsBuiltin() && m_pType->IsBuiltin() ) {
+		const BuiltinTypeAST* pBuiltin= m_pExpr->GetType()->ToBuiltin(),
+		                    * pBuiltinTarget= m_pType->ToBuiltin();
+		
+		// Floating point to floating point casts
+		if( pBuiltin->IsFloatingPoint() && pBuiltinTarget->IsFloatingPoint() )
+			return context.GetBuilder().CreateFPCast( pValue, pType, "fpcasttmp" );
 
-	// Floating point to signed integer
-	if( m_pExpr->GetType()->ToBuiltin()->IsFloatingPoint() && m_pType->ToBuiltin()->IsSigned() )
-		return context.GetBuilder().CreateFPToSI( pValue, pType, "cast_fp_si_tmp" );
-	// Floating point to unsigned integer
-	if( m_pExpr->GetType()->ToBuiltin()->IsFloatingPoint() && m_pType->ToBuiltin()->IsUnsigned() )
-		return context.GetBuilder().CreateFPToUI( pValue, pType, "cast_fp_ui_tmp" );
-	// Signed integer to floating point
-	if( m_pExpr->GetType()->ToBuiltin()->IsSigned() && m_pType->ToBuiltin()->IsFloatingPoint() )
-		return context.GetBuilder().CreateUIToFP( pValue, pType, "cast_ui_fp_tmp" );
-	// Unsigned integer to floating point
-	if( m_pExpr->GetType()->ToBuiltin()->IsUnsigned() && m_pType->ToBuiltin()->IsFloatingPoint() )
-		return context.GetBuilder().CreateSIToFP( pValue, pType, "cast_si_fp_tmp" );
-	// Bool to integer
-	if( *m_pExpr->GetType() == *BuiltinTypeAST::GetBool() && m_pType->ToBuiltin()->IsIntegral() )
-		return context.GetBuilder().CreateIntCast( pValue, pType, false, "cast_bool_int_tmp" );
-	// Integer to integer
-	if( m_pExpr->GetType()->ToBuiltin()->IsIntegral() && m_pType->ToBuiltin()->IsIntegral() )
-		return context.GetBuilder().CreateIntCast( pValue, pType, m_pExpr->GetType()->ToBuiltin()->IsSigned(), "intcasttmp" );
+		// Floating point to signed integer
+		if( pBuiltin->IsFloatingPoint() && pBuiltinTarget->IsSigned() )
+			return context.GetBuilder().CreateFPToSI( pValue, pType, "cast_fp_si_tmp" );
+		// Floating point to unsigned integer
+		if( pBuiltin->IsFloatingPoint() && pBuiltinTarget->IsUnsigned() )
+			return context.GetBuilder().CreateFPToUI( pValue, pType, "cast_fp_ui_tmp" );
+		// Signed integer to floating point
+		if( pBuiltin->IsSigned() && pBuiltinTarget->IsFloatingPoint() )
+			return context.GetBuilder().CreateUIToFP( pValue, pType, "cast_ui_fp_tmp" );
+		// Unsigned integer to floating point
+		if( pBuiltin->IsUnsigned() && pBuiltinTarget->IsFloatingPoint() )
+			return context.GetBuilder().CreateSIToFP( pValue, pType, "cast_si_fp_tmp" );
+		// Bool to integer
+		if( *m_pExpr->GetType() == *BuiltinTypeAST::GetBool() && pBuiltinTarget->IsIntegral() )
+			return context.GetBuilder().CreateIntCast( pValue, pType, false, "cast_bool_int_tmp" );
+		// Integer to integer
+		if( pBuiltin->IsIntegral() && pBuiltinTarget->IsIntegral() )
+			return context.GetBuilder().CreateIntCast( pValue, pType, pBuiltin->IsSigned(), "intcasttmp" );
+	} else if( m_pExpr->GetType()->IsArray() && m_pType->IsArray() ) {
+		const ArrayTypeAST* pArray= m_pExpr->GetType()->ToArray(),
+		                  * pArrayTarget= m_pType->ToArray();
+
+		// Allow casts of sized arrays to unsized arrays of the same type
+		if( *pArray->GetElementType() == *pArrayTarget->GetElementType() && pArray->GetLengthExpression() && !pArrayTarget->GetLengthExpression() ) {
+			// We need the address of the value rather than the load instruction for the actual value
+			if( !dynamic_pointer_cast<VariableAST>(m_pExpr) ) return ErrorCodegen( "Expected a variable ast node when casting from sized to unsized array" );
+			pValue= dynamic_pointer_cast<VariableAST>(m_pExpr)->CodegenLValue( context, scope );
+			return context.GetBuilder().CreatePointerCast( pValue, pArray->GetElementType()->Codegen(context, scope)->getPointerTo(), "array_ptr_decay" );
+		} // end if sized to unsized array cast
+	}
 
 	// Unhandled case
 	return ErrorCodegen( "Unhandled cast from \"" + m_pExpr->GetType()->GetName() + "\" to \"" + m_pType->GetName() + "\"" );

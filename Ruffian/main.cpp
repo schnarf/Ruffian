@@ -124,6 +124,7 @@ int main( int argc, char* argv[] ) {
 
 	// JIT the function, returning a function pointer
 	int32 (*mainFunc)(int32)= (int32(*)(int32))pCodegen->GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
+	pCodegen->GetContext()->GetModule()->dump();
 	cout << "main() returned " << mainFunc(23) << endl;
 
 	return 0;

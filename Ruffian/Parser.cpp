@@ -642,6 +642,7 @@ shared_ptr<ExprAST> Parser::parseExpression() {
 //! Parses a return statment
 shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 	/* return_stmt
+		::= 'return' ';'
 		::= 'return' expression ';'
 	*/
 
@@ -653,9 +654,12 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 	// Eat "return"
 	m_pLexer->GetNextToken();
 
-	// Parse the expression
-	shared_ptr<ExprAST> pExpr( parseExpression() );
-	if( !pExpr ) return NULL;
+	// Parse the expression, if we have one
+	shared_ptr<ExprAST> pExpr;
+	if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
+		pExpr= parseExpression();
+		if( !pExpr ) return NULL;
+	} // end if parsing return expression
 
 	// Now eat the semicolon
 	ASSERT( m_pLexer->GetCurrentToken() == TOKEN_SEMICOLON );
@@ -669,7 +673,7 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 	} // end if no return type
 
 	// Implicitly cast to the expected return type, if we have a different type
-	if( *pExpr->GetType() != *getExpectedReturnType() ) {
+	if( pExpr && *pExpr->GetType() != *getExpectedReturnType() ) {
 		if( IsImplicitCastAllowed(pExpr, getExpectedReturnType()) ) {
 			pExpr.reset( new CastAST(pExpr, getExpectedReturnType()) );
 		} else {

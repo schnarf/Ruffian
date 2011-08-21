@@ -1,6 +1,6 @@
 #pragma once
 
-class CodegenContext; class CodegenScope; class Scope; class BuiltinTypeAST; class ExprAST;
+class CodegenContext; class CodegenScope; class Scope; class BuiltinTypeAST; class ExprAST; class ArrayTypeAST;
 
 //! AST node for types, like "int" or a user-defined type
 class TypeAST {
@@ -19,6 +19,11 @@ public:
 	bool IsBuiltin() const;
 	//! Casts this type to a builtin, returning NULL if it's not a builtin
 	const BuiltinTypeAST* ToBuiltin() const;
+
+	//! Returns whether this type is an array
+	bool IsArray() const;
+	//! Casts this type to an array, returning NULL if it's not an array
+	const ArrayTypeAST* ToArray() const;
 
 	//! Returns our size in bytes
 	virtual uint GetSizeBytes() const= 0;
@@ -182,7 +187,9 @@ public:
 protected:
 	virtual bool isEqual( const TypeAST& rhs ) const {
 		if( const ArrayTypeAST* pOtherArray= dynamic_cast<const ArrayTypeAST*>(&rhs) ) {
-			return *GetElementType() == *pOtherArray->GetElementType();
+			// Two array types are the same if they both have the same underlying element type,
+			// and either both have a length or both do not.
+			return *GetElementType() == *pOtherArray->GetElementType() && (GetLengthExpression()==NULL) == (pOtherArray->GetLengthExpression()==NULL);
 		} else {
 			return false;
 		}
@@ -191,3 +198,8 @@ private:
 	shared_ptr<const TypeAST> m_pType;
 	shared_ptr<ExprAST> m_pLengthExpr;
 }; // end class ArrayTypeAST
+
+//! Returns whether this type is an array
+inline bool TypeAST::IsArray() const { return ToArray() != NULL; }
+//! Casts this type to an array, returning NULL if it's not an array
+inline const ArrayTypeAST* TypeAST::ToArray() const { return dynamic_cast<const ArrayTypeAST*>(this); }
