@@ -9,6 +9,7 @@ class PrototypeAST;
 class TypeAST;
 class IntegerAST;
 class DoubleAST;
+class LValueAST;
 
 //! AST node abstract base for expressions.
 //! Expressions evaluate to some value that has a type
@@ -25,6 +26,12 @@ public:
 	//! an arbitrary expression is constant, so we consider an expression
 	//! to be constant if it's made up entirely of literals and operators.
 	virtual bool IsConstant() const { return false; }
+
+	//! Returns whether this is an lvalue
+	bool IsLValue() const;
+	//! Tries to cast this to an lvalue. If it is not an lvalue, returns NULL.
+	const LValueAST* ToLValue() const;
+
 }; // end class ExprAST
 
 
@@ -35,8 +42,22 @@ public:
 }; // end class LiteralAST
 
 
+//! LValue AST node base class. This represents an expression
+//! whose address can be taken, so this provides a function
+//! to generate code to compute this address
+class LValueAST : public ExprAST {
+public:
+	//! Generates code for the address of this expression
+	virtual Value* CodegenAddress( CodegenContext& context, CodegenScope& scope ) const= 0;
+}; // end class LValueAST
+
+//! Returns whether this is an lvalue
+inline bool ExprAST::IsLValue() const { return ToLValue() != NULL; }
+//! Tries to cast this to an lvalue. If it is not an lvalue, returns NULL.
+inline const LValueAST* ExprAST::ToLValue() const { return dynamic_cast<const LValueAST*>(this); }
+
 //! AST node for variables, like "a"
-class VariableAST : public ExprAST {
+class VariableAST : public LValueAST {
 public:
 	//! Initialize with declaration
 	VariableAST( const shared_ptr<DeclarationAST>& pDeclaration ) : m_pDeclaration(pDeclaration) { ASSERT( m_pDeclaration ); }
@@ -48,7 +69,7 @@ public:
 	
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
-	virtual Value* CodegenLValue( CodegenContext& context, CodegenScope& scope ) const;
+	virtual Value* CodegenAddress( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	shared_ptr<DeclarationAST> m_pDeclaration;			//!< Points to the declaration statement that initialized us, must be set.
 }; // end VariableAST
@@ -62,7 +83,7 @@ public:
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
-	virtual Value* CodegenLValue( CodegenContext& context, CodegenScope& scope ) const;
+	virtual Value* CodegenAddress( CodegenContext& context, CodegenScope& scope ) const;
 	virtual bool IsConstant() const { return false; }
 private:
 	shared_ptr<ExprAST> m_pIndex;

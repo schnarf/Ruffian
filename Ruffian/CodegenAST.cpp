@@ -80,7 +80,7 @@ Value* BoolAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Codegen the variable's address
-	Value* pAddress= CodegenLValue( context, scope );
+	Value* pAddress= CodegenAddress( context, scope );
 	if( !pAddress ) return ErrorCodegen( "Could not generate VariableAST address" );
 
 	// Load the value
@@ -88,7 +88,7 @@ Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) cons
 } // end VariableAST::Codegen()
 
 
-Value* VariableAST::CodegenLValue( CodegenContext& context, CodegenScope& scope ) const {
+Value* VariableAST::CodegenAddress( CodegenContext& context, CodegenScope& scope ) const {
 	// Look up the variable in the scope
 	const string& strName= m_pDeclaration->GetName();
 	Value* pAddress= scope.LookupVariable( strName );
@@ -96,18 +96,18 @@ Value* VariableAST::CodegenLValue( CodegenContext& context, CodegenScope& scope 
 
 	// Return our address
 	return pAddress;
-} // end VariableAST::CodegenLValue()
+} // end VariableAST::CodegenAddress()
 
 
 Value* ArrayRefAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
-	// Codegen the lvalue and load it
-	Value* pElement= CodegenLValue( context, scope );
+	// Codegen the address and load it
+	Value* pElement= CodegenAddress( context, scope );
 	if( !pElement ) return ErrorCodegen( "Could not generate ArrayRefAST element address" );
 	return context.GetBuilder().CreateLoad( pElement, "array_element" );
 } // end ArrayRefAST::Codegen()
 
 
-Value* ArrayRefAST::CodegenLValue( CodegenContext& context, CodegenScope& scope ) const {
+Value* ArrayRefAST::CodegenAddress( CodegenContext& context, CodegenScope& scope ) const {
 	// Look up the array declaration in scope
 	const string& strName= GetDeclaration()->GetName();
 	Value* pAddress= scope.LookupVariable( strName );
@@ -117,7 +117,8 @@ Value* ArrayRefAST::CodegenLValue( CodegenContext& context, CodegenScope& scope 
 	Value* pIndex= m_pIndex->Codegen( context, scope );
 	if( !pIndex ) return ErrorCodegen( "Could not generate code for array index" );
 
-	// Treat it as a pointer if we have no length expression
+	// If we have no length expression, then load the address. This is because pBaseAddr is the address
+	// of the stack variable holding the pointer.
 	Value* pBaseAddr= pAddress;
 	if( !dynamic_pointer_cast<const ArrayTypeAST>(GetDeclaration()->GetType())->GetLengthExpression() ) {
 		pBaseAddr= context.GetBuilder().CreateLoad( pBaseAddr, "ptrtmp" );
@@ -125,18 +126,18 @@ Value* ArrayRefAST::CodegenLValue( CodegenContext& context, CodegenScope& scope 
 
 	// Compute the element address
 	return context.GetBuilder().CreateGEP( pBaseAddr, pIndex, "array_elem_addr" );
-} // end ArrayRefAST::CodegenLValue()
+} // end ArrayRefAST::CodegenAddress()
 
 
 Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Special-case assignments
 	if( m_binop == TOKEN_ASSIGN ) {
-		// Cast our LHS to a variable
-		shared_ptr<VariableAST> pVariable= dynamic_pointer_cast<VariableAST>( m_pLeft );
-		if( !pVariable ) return ErrorCodegen( "Left-hand side of assignment expression must be a variable" );
+		// Cast our LHS to an lvalue
+		const LValueAST* pLValue= m_pLeft->ToLValue();
+		if( !pLValue ) return ErrorCodegen( "Left-hand side of assignment expression must be a variable" );
 
 		// Lookup the lhsn
-		Value* pTargetAddr= pVariable->CodegenLValue( context, scope );
+		Value* pTargetAddr= pLValue->CodegenAddress( context, scope );
 
 		// Codegen the RHS
 		Value* pValue= m_pRight->Codegen( context, scope );
@@ -146,7 +147,7 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		context.GetBuilder().CreateStore( pValue, pTargetAddr );
 
 		// We return the variable as our value
-		return pVariable->Codegen( context, scope );
+		return m_pLeft->Codegen( context, scope );
 	} // end if assignment
 
 	Value* pLeft= m_pLeft->Codegen( context, scope );
@@ -411,8 +412,8 @@ Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		// Allow casts of sized arrays to unsized arrays of the same type
 		if( *pArray->GetElementType() == *pArrayTarget->GetElementType() && pArray->GetLengthExpression() && !pArrayTarget->GetLengthExpression() && !pArray->GetLengthExpression()->IsConstant() ) {
 			// We need the address of the value rather than the load instruction for the actual value
-			if( !dynamic_pointer_cast<VariableAST>(m_pExpr) ) return ErrorCodegen( "Expected a variable ast node when casting from sized to unsized array" );
-			pValue= dynamic_pointer_cast<VariableAST>(m_pExpr)->CodegenLValue( context, scope );
+			if( !m_pExpr->IsLValue() ) return ErrorCodegen( "Expected an lvalue when casting from sized to unsized array" );
+			pValue= m_pExpr->ToLValue()->CodegenAddress( context, scope );
 			return context.GetBuilder().CreatePointerCast( pValue, pArray->GetElementType()->Codegen(context, scope)->getPointerTo(), "array_ptr_decay" );
 		} // end if sized to unsized array cast
 	}
@@ -518,6 +519,10 @@ void DeclarationAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	Value* pAlloc= NULL;
 	if( !m_pType->IsArray() || m_pType->ToArray()->GetLengthExpression()->IsConstant() ) {
 		pAlloc= CreateEntryBlockAlloca( context, scope, pFunction, GetName(), m_pType );
+		if( m_pType->IsArray() ) {
+			// Convert array to pointer
+			pAlloc= context.GetBuilder().CreateConstGEP1_32( pAlloc, 0, "array_ptr_decay" );
+		}
 	} else {
 		pAlloc= CreateMalloc( context, scope, GetName(), m_pType );
 	}
@@ -668,6 +673,8 @@ const Type* ArrayTypeAST::Codegen( CodegenContext& context, CodegenScope& scope 
 		cerr << "Could not generate array element type\n";
 		return NULL;
 	} // end if error
+
+	return pElementType->getPointerTo();
 
 	// If we have no length, this is really a pointer
 	if( !m_pLengthExpr ) {
