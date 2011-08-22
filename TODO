@@ -1,7 +1,5 @@
 Language Design
 ==================================
-- Lvalues/rvalues, or some equivalent. Need to be able to determine whether an expression
-  is a location that can be assigned to or not.
 - POINTERS!
 - Consider changing the conditional statement definition. It may be simpler if it
   can take any statement, not just blocks. Maybe braces are nice though, to avoid
