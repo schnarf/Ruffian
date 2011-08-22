@@ -32,6 +32,33 @@ namespace {
 		IRBuilder<> tempBuilder( &pFunction->getEntryBlock(), pFunction->getEntryBlock().begin() );
 		return tempBuilder.CreateAlloca( pType, pArrayLength, strName.c_str() );
 	} // end CreateEntryBlockAlloca()
+
+	//! Create a malloc instruction in the entry block of the function
+	Value* CreateMalloc( CodegenContext& context, CodegenScope& scope, const string& strName, const shared_ptr<const TypeAST>& pTypeNode ) {
+		// We only expect this to be used for array types
+		if( !pTypeNode->IsArray() ) return ErrorCodegen( "Expected array type" );
+		shared_ptr<const ArrayTypeAST> pArrayType= dynamic_pointer_cast<const ArrayTypeAST>( pTypeNode );
+
+		// We require a length expression
+		if( !pArrayType->GetLengthExpression() ) return ErrorCodegen( "Expected a length expression" );
+
+		const Type* pType= pArrayType->GetElementType()->Codegen( context, scope );
+		Value* pArrayLength= pArrayType->GetLengthExpression()->Codegen( context, scope );
+
+		// Look up our internal malloc function in the symbol table
+		Function* pMallocFunction= context.GetModule()->getFunction( "malloc" );
+		if( !pMallocFunction ) return ErrorCodegen( "Could not find malloc()" );
+
+		Value* pSize= ConstantInt::get( Type::getInt64Ty(getGlobalContext()), pType->getScalarSizeInBits() / 8, false );
+		if( pArrayLength ) pSize= context.GetBuilder().CreateMul( pSize, context.GetBuilder().CreateIntCast(pArrayLength, Type::getInt64Ty(getGlobalContext()), false, "array_length_cast"), "malloc_size" );
+		pSize= context.GetBuilder().CreateIntCast( pSize, Type::getInt64Ty(getGlobalContext()), false, "malloc_size_cast" );
+		Value* pPtr= context.GetBuilder().CreateCall( pMallocFunction, pSize, "malloc_ptr" );
+
+		// Cast to the correct pointer type
+		pPtr= context.GetBuilder().CreatePointerCast( pPtr, pType->getPointerTo(), "malloc_ptr_cast" );
+
+		return pPtr;
+	} // end CreateMalloc()
 } // end file-scope
 
 Value* IntegerAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
@@ -64,11 +91,11 @@ Value* VariableAST::Codegen( CodegenContext& context, CodegenScope& scope ) cons
 Value* VariableAST::CodegenLValue( CodegenContext& context, CodegenScope& scope ) const {
 	// Look up the variable in the scope
 	const string& strName= m_pDeclaration->GetName();
-	AllocaInst* pAlloca= scope.LookupVariable( strName );
-	if( !pAlloca ) return ErrorCodegen( string("Variable \"") + strName + "\" was not defined in the current scope" );
+	Value* pAddress= scope.LookupVariable( strName );
+	if( !pAddress ) return ErrorCodegen( string("Variable \"") + strName + "\" was not defined in the current scope" );
 
 	// Return our address
-	return pAlloca;
+	return pAddress;
 } // end VariableAST::CodegenLValue()
 
 
@@ -83,15 +110,15 @@ Value* ArrayRefAST::Codegen( CodegenContext& context, CodegenScope& scope ) cons
 Value* ArrayRefAST::CodegenLValue( CodegenContext& context, CodegenScope& scope ) const {
 	// Look up the array declaration in scope
 	const string& strName= GetDeclaration()->GetName();
-	AllocaInst* pAlloca= scope.LookupVariable( strName );
-	if( !pAlloca ) return ErrorCodegen( string("Array \"") + strName + "\" was not defined in the current scope" );
+	Value* pAddress= scope.LookupVariable( strName );
+	if( !pAddress ) return ErrorCodegen( string("Array \"") + strName + "\" was not defined in the current scope" );
 
 	// Codegen the index
 	Value* pIndex= m_pIndex->Codegen( context, scope );
 	if( !pIndex ) return ErrorCodegen( "Could not generate code for array index" );
 
 	// Treat it as a pointer if we have no length expression
-	Value* pBaseAddr= pAlloca;
+	Value* pBaseAddr= pAddress;
 	if( !dynamic_pointer_cast<const ArrayTypeAST>(GetDeclaration()->GetType())->GetLengthExpression() ) {
 		pBaseAddr= context.GetBuilder().CreateLoad( pBaseAddr, "ptrtmp" );
 	} // end if no length
@@ -215,16 +242,16 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		if( !pVariable ) return ErrorCodegen( "Operand of postfix increment must be a variable" );
 
 		// Lookup the lhs
-		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
-		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix increment" );
-		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+		Value* pAddress= scope.LookupVariable( pVariable->GetName() );
+		if( !pAddress ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix increment" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAddress );
 
 		// Create the assignment
 		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()) );
 		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
 
 		// Emit the store
-		context.GetBuilder().CreateStore( pValue, pAlloca );
+		context.GetBuilder().CreateStore( pValue, pAddress );
 		// Return the value
 		return pValue;
 	}
@@ -238,16 +265,16 @@ Value* PrefixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 		if( !pVariable ) return ErrorCodegen( "Operand of postfix decrement must be a variable" );
 
 		// Lookup the lhs
-		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
-		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix decrement" );
-		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+		Value* pAddress= scope.LookupVariable( pVariable->GetName() );
+		if( !pAddress ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix decrement" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAddress );
 
 		// Create the assignment
 		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()));
-		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
+		Value* pValue= context.GetBuilder().CreateSub( pLoad, pOne, "subtmp" );
 
 		// Emit the store
-		context.GetBuilder().CreateStore( pValue, pAlloca );
+		context.GetBuilder().CreateStore( pValue, pAddress );
 		// Return the value
 		return pValue;
 	}
@@ -269,16 +296,16 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 		if( !pVariable ) return ErrorCodegen( "Operand of postfix increment must be a variable" );
 
 		// Lookup the lhs
-		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
-		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix increment" );
-		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+		Value* pAddress= scope.LookupVariable( pVariable->GetName() );
+		if( !pAddress ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix increment" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAddress );
 
 		// Create the assignment
 		Value* pOne= ConstantInt::get( getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()) );
 		Value* pValue= context.GetBuilder().CreateAdd( pLoad, pOne, "addtmp" );
 
 		// Emit the store
-		context.GetBuilder().CreateStore( pValue, pAlloca );
+		context.GetBuilder().CreateStore( pValue, pAddress );
 		// Return the original value
 		return pLoad;
 	}
@@ -292,16 +319,16 @@ Value* PostfixUnaryAST::Codegen( CodegenContext& context, CodegenScope& scope ) 
 		if( !pVariable ) return ErrorCodegen( "Operand of postfix decrement must be a variable" );
 
 		// Lookup the lhs
-		AllocaInst* pAlloca= scope.LookupVariable( pVariable->GetName() );
-		if( !pAlloca ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix decrement" );
-		Value* pLoad= context.GetBuilder().CreateLoad( pAlloca );
+		Value* pAddress= scope.LookupVariable( pVariable->GetName() );
+		if( !pAddress ) return ErrorCodegen( string("Variable \"") + pVariable->GetName() + "\" does not exist while creating postfix decrement" );
+		Value* pLoad= context.GetBuilder().CreateLoad( pAddress );
 
 		// Create the assignment
 		Value* pOne= ConstantInt::get(getGlobalContext(), APInt(pLoad->getType()->getPrimitiveSizeInBits(), 1, m_pExpr->GetType()->ToBuiltin()->IsSigned()));
-		Value* pValue= context.GetBuilder().CreateSub( context.GetBuilder().CreateLoad(pAlloca), pOne, "subtmp" );
+		Value* pValue= context.GetBuilder().CreateSub( pLoad, pOne, "subtmp" );
 
 		// Emit the store
-		context.GetBuilder().CreateStore( pValue, pAlloca );
+		context.GetBuilder().CreateStore( pValue, pAddress );
 		// Return the original value
 		return pLoad;
 	}
@@ -382,7 +409,7 @@ Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		                  * pArrayTarget= m_pType->ToArray();
 
 		// Allow casts of sized arrays to unsized arrays of the same type
-		if( *pArray->GetElementType() == *pArrayTarget->GetElementType() && pArray->GetLengthExpression() && !pArrayTarget->GetLengthExpression() ) {
+		if( *pArray->GetElementType() == *pArrayTarget->GetElementType() && pArray->GetLengthExpression() && !pArrayTarget->GetLengthExpression() && !pArray->GetLengthExpression()->IsConstant() ) {
 			// We need the address of the value rather than the load instruction for the actual value
 			if( !dynamic_pointer_cast<VariableAST>(m_pExpr) ) return ErrorCodegen( "Expected a variable ast node when casting from sized to unsized array" );
 			pValue= dynamic_pointer_cast<VariableAST>(m_pExpr)->CodegenLValue( context, scope );
@@ -488,11 +515,17 @@ void DeclarationAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 		if( !pInitVal ) { ErrorCodegen( string("Error emitting code for initializer for the declaration of variable \"") + GetName() + "\"" ); return; }
 	}
 
-	AllocaInst* pAlloca= CreateEntryBlockAlloca( context, scope, pFunction, GetName(), m_pType );
-	if( m_pInitializer ) context.GetBuilder().CreateStore( pInitVal, pAlloca );
+	Value* pAlloc= NULL;
+	if( !m_pType->IsArray() || m_pType->ToArray()->GetLengthExpression()->IsConstant() ) {
+		pAlloc= CreateEntryBlockAlloca( context, scope, pFunction, GetName(), m_pType );
+	} else {
+		pAlloc= CreateMalloc( context, scope, GetName(), m_pType );
+	}
 
+	if( m_pInitializer ) context.GetBuilder().CreateStore( pInitVal, pAlloc );
+	
 	// Register the binding
-	bool bSuccess= scope.RegisterVariable( GetName(), pAlloca );
+	bool bSuccess= scope.RegisterVariable( GetName(), pAlloc );
 	if( !bSuccess ) { ErrorCodegen( string("Variable \"") + GetName() + "\" already exists in variable declaration"  ); return; }
 } // end DeclarationAST::Codegen()
 

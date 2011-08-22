@@ -28,6 +28,10 @@ static int rand_lib() {
 	return rand();
 } // end rand_lib()
 
+static char* malloc_lib( uint64 nBytes ) {
+	return (char*)malloc( nBytes );
+} // end malloc_lib()
+
 int main( int argc, char* argv[] ) {
 
 	llvm::InitializeNativeTarget();
@@ -96,6 +100,14 @@ int main( int argc, char* argv[] ) {
 		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "rand", pCodegen->GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "rand", (void*)rand_lib );
 		srand( time(NULL) );
+	}
+
+	{
+		vector<const llvm::Type*> pArgTypes;
+		pArgTypes.push_back( llvm::Type::getInt64Ty(llvm::getGlobalContext()) );
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getInt8PtrTy(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "malloc", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "malloc", (void*)malloc_lib );
 	}
 
 	bool bCodegenSuccess= pCodegen->Run( pModule );

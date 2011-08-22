@@ -11,10 +11,10 @@ public:
 	~CodegenScope();
 
 	//! Looks up a variable, returning NULL if it doesn't exist
-	llvm::AllocaInst* LookupVariable( const string& strName );
+	llvm::Value* LookupVariable( const string& strName );
 
 	//! Registers a variable, returns FALSE for a failure if it already exists
-	bool RegisterVariable( const string& strName, llvm::AllocaInst* pAllocaInst );
+	bool RegisterVariable( const string& strName, llvm::Value* pValue );
 
 	//! Sentry for entering/exiting a scope
 	class ScopeEnterSentry {
@@ -30,7 +30,7 @@ public:
 	friend class ScopeEnterSentry;
 private:
 	struct Frame {
-		map<string, llvm::AllocaInst*> variables;
+		map<string, llvm::Value*> variables;
 	}; // end struct Frame
 
 	vector<Frame> m_scopes;		//!< Our existing scopes

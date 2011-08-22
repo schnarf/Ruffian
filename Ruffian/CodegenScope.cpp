@@ -10,20 +10,20 @@ CodegenScope::CodegenScope() :
 
 
 //! Looks up a variable
-AllocaInst* CodegenScope::LookupVariable( const string& strName ) {
-	map<string, AllocaInst*>& curScope= m_scopes.back().variables;
-	map<string, AllocaInst*>::iterator itVar= curScope.find( strName );
+Value* CodegenScope::LookupVariable( const string& strName ) {
+	map<string, Value*>& curScope= m_scopes.back().variables;
+	map<string, Value*>::iterator itVar= curScope.find( strName );
 	if( itVar == curScope.end() ) return NULL;
 	else return itVar->second;
 } // end LookupVariable()
 
 
 //! Registers a variable, returns false for a failure because it already exists
-bool CodegenScope::RegisterVariable( const string& strName, AllocaInst* pAllocaInst ) {
-	map<string, AllocaInst*>& curScope= m_scopes.back().variables;
+bool CodegenScope::RegisterVariable( const string& strName, Value* pValue ) {
+	map<string, Value*>& curScope= m_scopes.back().variables;
 	if( curScope.find(strName) != curScope.end() ) return false;
 
-	curScope[strName]= pAllocaInst;
+	curScope[strName]= pValue;
 	return true;
 } // end RegisterVariable()
 

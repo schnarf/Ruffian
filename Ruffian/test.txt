@@ -131,18 +131,18 @@ def quicksort( int[] a, int n ) {
 }
 
 def main(int n) -> int {
-	int[100] array;
+	int[n] array;
 
-	for( int i=0; i<arraysize(array); ++i ) {
+	for( int i=0; i<n; ++i ) {
 		array[i]= rand();
 	}
 
-	printIntArray( array, arraysize(array) );
+	printIntArray( array, n );
 	
-	quicksort( array, arraysize(array) );
+	quicksort( array, n );
 
 	printNewline();
-	printIntArray( array, arraysize(array) );
+	printIntArray( array, n );
 
 	return 0;
 }
