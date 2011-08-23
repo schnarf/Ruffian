@@ -32,6 +32,10 @@ static char* malloc_lib( uint64 nBytes ) {
 	return (char*)malloc( nBytes );
 } // end malloc_lib()
 
+static void free_lib( char* p ) {
+	free( p );
+} // end free_lib()
+
 int main( int argc, char* argv[] ) {
 
 	llvm::InitializeNativeTarget();
@@ -108,6 +112,14 @@ int main( int argc, char* argv[] ) {
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getInt8PtrTy(llvm::getGlobalContext()), pArgTypes, false );
 		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "malloc", pCodegen->GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "malloc", (void*)malloc_lib );
+	}
+
+	{
+		vector<const llvm::Type*> pArgTypes;
+		pArgTypes.push_back( llvm::Type::getInt8PtrTy(llvm::getGlobalContext()) );
+		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "free", pCodegen->GetContext()->GetModule() );
+		llvm::sys::DynamicLibrary::AddSymbol( "free", (void*)free_lib );
 	}
 
 	bool bCodegenSuccess= pCodegen->Run( pModule );

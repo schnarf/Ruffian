@@ -33,7 +33,7 @@ namespace {
 		return tempBuilder.CreateAlloca( pType, pArrayLength, strName.c_str() );
 	} // end CreateEntryBlockAlloca()
 
-	//! Create a malloc instruction in the entry block of the function
+	//! Create a malloc instruction and adds it to the scope's free list
 	Value* CreateMalloc( CodegenContext& context, CodegenScope& scope, const string& strName, const shared_ptr<const TypeAST>& pTypeNode ) {
 		// We only expect this to be used for array types
 		if( !pTypeNode->IsArray() ) return ErrorCodegen( "Expected array type" );
@@ -56,6 +56,9 @@ namespace {
 
 		// Cast to the correct pointer type
 		pPtr= context.GetBuilder().CreatePointerCast( pPtr, pType->getPointerTo(), "malloc_ptr_cast" );
+
+		// Add to the free list
+		scope.AddToFreeList( pPtr );
 
 		return pPtr;
 	} // end CreateMalloc()
@@ -451,7 +454,7 @@ Function* FunctionAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 	Function* pFunction= m_pPrototype->Codegen( context, scope );
 
 	// Begin a new scope
-	CodegenScope::ScopeEnterSentry s_scope( scope );
+	CodegenScope::ScopeEnterSentry s_scope( context, scope );
 
 	// Create a new basic block for the function's body
 	BasicBlock* pBlock= BasicBlock::Create( getGlobalContext(), "entry", pFunction );
@@ -537,19 +540,20 @@ void DeclarationAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 
 void BlockAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Enter a new scope
-	CodegenScope::ScopeEnterSentry s_scope( scope );
-
-	// We return a value only if it's a return instruction
-	Value* pRet= NULL;
+	CodegenScope::ScopeEnterSentry s_scope( context, scope );
 
 	// Emit code for each of our statements
 	for( uint iStmt=0; iStmt<m_pStmts.size(); ++iStmt ) {
-		m_pStmts[iStmt]->Codegen( context, scope );
-
 		// Check for a return
-		if( dynamic_cast<ReturnAST*>(m_pStmts[iStmt].get()) ) {
+		if( shared_ptr<ReturnAST> pReturn= dynamic_pointer_cast<ReturnAST>(m_pStmts[iStmt]) ) {
 			if( iStmt+1<m_pStmts.size() ) { ErrorCodegen( string("Return expression in a block was not the last expression") ); return; }
+
+			// Set the return statement, but don't emit it here. It will get emitted when we leave the scope
+			scope.SetReturn( pReturn );
+			break;
 		} // end if return
+
+		m_pStmts[iStmt]->Codegen( context, scope );
 	} // end for expression
 } // end BlockAST::Codegen()
 
@@ -609,7 +613,7 @@ void ForAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	*/
 
 	// Enter a new scope
-	CodegenScope::ScopeEnterSentry s_scope( scope );
+	CodegenScope::ScopeEnterSentry s_scope( context, scope );
 
 	// Emit the initializer expression
 	m_pInitializer->Codegen( context, scope );

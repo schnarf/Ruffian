@@ -8,53 +8,6 @@ def fibonacci( int n ) -> int {
 	return fibonacci(n-1) + fibonacci(n-2);
 }
 
-def decl_test(int n) -> int {
-	int ret;
-	if( n < 3 ) {
-		int x= factorial(n);
-		ret= x;
-	} else {
-		int x= fibonacci(n);
-		ret= x;
-	}
-
-	return ret;
-}
-
-def bool_test(int n) -> int {
-	bool bValue= true;
-	bValue= n < 3;
-	if( bValue ) {
-		return n;
-	}
-	return 3;
-}
-
-def opt_test(int x) -> int {
-	return (1+2+x) * (x+(1+2));
-}
-
-def stefs_function(int x) -> int {
-	return x*x*x;
-}
-
-def prototype2(int x) -> int;
-
-def prototype1(int x) -> int {
-	return prototype2(x);
-}
-
-def prototype2(int x) -> int {
-	return 1 + x;
-}
-
-def prototype2(int x) -> int;
-
-def operator_precedence(int x, int y) -> int {
-	int b= y / x + 3 * (y - x);
-	return b;
-}
-
 def printInt(int n);
 def printFloat(float f);
 def printDouble(double f);
