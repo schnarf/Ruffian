@@ -207,17 +207,19 @@ Token Lexer::getTok() {
 		break;
 	}
 	case '*': token= TOKEN_STAR; bEatChar= true; break;
-	case '/': 
-		if( readChar() == '/' ) {
+	case '/': {
+		char nextChar= readChar();
+		if( nextChar == '/' ) {
 			// This is a comment. Skip characters until the end of the line
 			while( m_lastChar != '\n' && m_lastChar != '\r' && m_lastChar != EOF ) readChar();
 			// Now keep parsing
 			return getTok();
 		} else {
 			token= TOKEN_SLASH;
-			bEatChar= true;
+			bEatChar= false;
 		}
 		break;
+			  }
 	case '-': {
 		char nextChar= readChar();
 		if( nextChar == '>' ) { token= TOKEN_ARROW; bEatChar= true; }
