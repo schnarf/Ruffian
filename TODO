@@ -1,6 +1,5 @@
 Language Design
 ==================================
-- While loops
 - Define how & and | operators work. Can we make it so it's not necessary to distinguish
   bitwise and logical, since booleans and arithmetic types can't be implicitly mixed?
 - POINTERS!

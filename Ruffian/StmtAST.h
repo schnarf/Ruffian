@@ -99,6 +99,19 @@ private:
 }; // end class ForAST
 
 
+//! While loop AST node
+class WhileAST : public StmtAST {
+public:
+	//! Initialize with condition and body
+	WhileAST( const shared_ptr<ExprAST>& pCondition, const shared_ptr<StmtAST>& pBody ) : m_pCondition(pCondition), m_pBody(pBody) {}
+
+	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
+private:
+	shared_ptr<ExprAST> m_pCondition;
+	shared_ptr<StmtAST> m_pBody;
+}; // end class WhileAST
+
+
 //! Expression statement AST Node
 //! Just an expression with a semicolon after it
 class ExprStmtAST : public PrimaryStmtAST {

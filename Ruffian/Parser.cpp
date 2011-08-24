@@ -561,6 +561,7 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 		::= block
 		::= conditional_statement
 		::= for_statement
+		::= while_statement
 	*/
 
 	switch( m_pLexer->GetCurrentToken() ) {
@@ -568,6 +569,7 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 	case TOKEN_LBRACE: return parseBlock();
 	case TOKEN_IF: return parseConditionalStatement();
 	case TOKEN_FOR: return parseForStatement();
+	case TOKEN_WHILE: return parseWhileStatement();
 	// Parse everything else as a primary statement, since they can start
 	// with different kinds of tokens
 	default: return parsePrimaryStatement();
@@ -1121,6 +1123,53 @@ shared_ptr<ForAST> Parser::parseForStatement() {
 
 	return shared_ptr<ForAST>( new ForAST(pInitializer, pCondition, pUpdate, pBody) );
 } // end Parser::parseForStatement()
+
+
+//! Parses a while statement
+shared_ptr<WhileAST> Parser::parseWhileStatement() {
+	/*
+	while_statement
+		::= while '(' expression ')' statement
+	*/
+
+	// We expect "while"
+	if( m_pLexer->GetCurrentToken() != TOKEN_WHILE ) {
+		cerr << "Expected \"while\" while parsing while statement\n";
+		return NULL;
+	} // end if no "while"
+	m_pLexer->GetNextToken();
+
+	// We expect '('
+	if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
+		cerr << "Expected '(' after \"while\" while parsing while statement\n";
+		return NULL;
+	} // end if no lparen
+	m_pLexer->GetNextToken();
+
+	// Parse the condition
+	shared_ptr<ExprAST> pCondition= parseExpression();
+	if( !pCondition ) {
+		cerr << "Could not parse condition expression while parsing while statement\n";
+		return NULL;
+	} // end if parse error
+
+	// We expect ')'
+	if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+		cerr << "Expected ')' after condition expression while parsing while statement\n";
+		return NULL;
+	} // end if no rparen
+	m_pLexer->GetNextToken();
+
+	// Parse the statement
+	shared_ptr<StmtAST> pBody= parseStatement();
+	if( !pBody ) {
+		cerr << "Could not parse body statement while parsing while statement\n";
+		return NULL;
+	} // end if parse error
+
+	// Create the while expression
+	return shared_ptr<WhileAST>( new WhileAST(pCondition, pBody) );
+} // end Parser::parseWhileStatement()
 
 
 //! Creates a numeric literal, given the type and its string representation

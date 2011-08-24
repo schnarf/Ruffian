@@ -90,7 +90,7 @@ def merge( int[] left, int[] right, int[] a, int n ) {
 	int iLeft= 0;
 	int iRight= 0;
 	
-	for( bool bContinue= nLeft>0 | nRight>0; bContinue; bContinue= nLeft>0 | nRight>0 ) {
+	while( nLeft > 0 | nRight > 0 ) {
 		if( nLeft > 0 & nRight > 0 ) {
 			if( left[iLeft] <= right[iRight] ) {
 				a[iPos]= left[iLeft];
