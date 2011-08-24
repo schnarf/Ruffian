@@ -1038,6 +1038,12 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 		}
 	}
 
+	// Semantic checking: Make sure the condition expression is implicitly convertable to bool
+	if( !IsImplicitCastAllowed(pCondExpr, BuiltinTypeAST::GetBool()) ) {
+		cerr << "Conditional expression in if statement must be implicitly convertable to bool\n";
+		return NULL;
+	} // end if cannot cast to bool
+
 	return shared_ptr<ConditionalAST>( new ConditionalAST(pCondExpr, pStatement, pElseStmt) );
 } // end Parser::parseConditionalStatement()
 
@@ -1114,12 +1120,11 @@ shared_ptr<ForAST> Parser::parseForStatement() {
 		return NULL;
 	} // end if error
 
-	// Check that the condition expression has type "bool"
-	// TODO: Check convertability once we add casting?
-	if( pCondition->GetType() != BuiltinTypeAST::GetBool() ) {
-		cerr << "For statement condition expression must evaluate to bool\n";
+	// Semantic checking: make sure the condition is implicitly convertable to bool
+	if( !IsImplicitCastAllowed(pCondition, BuiltinTypeAST::GetBool()) ) {
+		cerr << "For statement expression must be implicitly convertable to bool\n";
 		return NULL;
-	} // end if non-bool condition
+	} // end if cannot cast to bool
 
 	return shared_ptr<ForAST>( new ForAST(pInitializer, pCondition, pUpdate, pBody) );
 } // end Parser::parseForStatement()
@@ -1166,6 +1171,12 @@ shared_ptr<WhileAST> Parser::parseWhileStatement() {
 		cerr << "Could not parse body statement while parsing while statement\n";
 		return NULL;
 	} // end if parse error
+
+	// Semantic checking: make sure the condition is implicitly convertable to bool
+	if( !IsImplicitCastAllowed(pCondition, BuiltinTypeAST::GetBool()) ) {
+		cerr << "While statement condition must be implicitly convertable to bool\n";
+		return NULL;
+	} // end if cannot cast to bool
 
 	// Create the while expression
 	return shared_ptr<WhileAST>( new WhileAST(pCondition, pBody) );

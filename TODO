@@ -23,3 +23,7 @@ Refactory
 - Have StmtAST::Codegen return a bool indicating success or failure, and check it
 - Fix up the way free statements happen, and how return statements are stored in the scope.
   Maybe the AST should be transformed so that explicit function calls to free() are inserted into the block.
+- Separate out semantic checking just a little bit. Already started to do this when checking
+  whether conditionals are implicitly convertable to bool in for, while, and if statements.
+  Basically we should do all the necessary parsing to get what we need for that node,
+  and then, just before creating the AST node, we should do the semantic checking.
