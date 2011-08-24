@@ -7,8 +7,8 @@
 inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_ptr<const TypeAST>& l, const shared_ptr<const TypeAST>& r ) {
 	if( !Lexer::IsBinopToken(binop) ) { ASSERT( false ); return BuiltinTypeAST::GetError(); }
 
-	// For now, only allow builtin arithmetic types
-	if( !l->ToBuiltin()->IsArithmetic() || !r->ToBuiltin()->IsArithmetic() ) return BuiltinTypeAST::GetError();
+	// For now, only allow builtin types
+	if( !l->ToBuiltin() || !r->ToBuiltin() ) return BuiltinTypeAST::GetError();
 
 	switch( binop ) {
 	case TOKEN_PLUS:
@@ -31,6 +31,8 @@ inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_
 	case TOKEN_GE:
 	case TOKEN_NEQ:
 	case TOKEN_EQ:
+	case TOKEN_AND:
+	case TOKEN_OR:
 		// These comparison operators all give a bool
 		return BuiltinTypeAST::GetBool();
 	default:
@@ -65,6 +67,7 @@ inline int GetBinopPrecedence( Token binop ) {
 	static map<Token, int> precedence;
 	if( precedence.empty() ) {
 		precedence[TOKEN_ASSIGN]= 2;
+		precedence[TOKEN_AND]= precedence[TOKEN_OR]= 4;
 		precedence[TOKEN_EQ]= precedence[TOKEN_NEQ]= 5;
 		precedence[TOKEN_LT]= precedence[TOKEN_GT]= precedence[TOKEN_LE]= precedence[TOKEN_GE]= 10;
 		precedence[TOKEN_PLUS]= precedence[TOKEN_MINUS]= 20;

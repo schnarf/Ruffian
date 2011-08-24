@@ -22,3 +22,5 @@ Compiler
 Refactory
 ==================================
 - Have StmtAST::Codegen return a bool indicating success or failure, and check it
+- Fix up the way free statements happen, and how return statements are stored in the scope.
+  Maybe the AST should be transformed so that explicit function calls to free() are inserted into the block.

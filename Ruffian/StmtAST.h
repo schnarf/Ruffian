@@ -12,6 +12,10 @@ public:
 	virtual ~StmtAST() {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const= 0;
+
+	//! Returns whether this generates code that has a return in the outermost basic block
+	bool HasReturn() const;
+
 }; // end class StmtAST
 
 
@@ -57,11 +61,9 @@ public:
 	//! Initialize with our list of statements
 	BlockAST( const vector<shared_ptr<StmtAST>>& pStmts ) : m_pStmts(pStmts) {}
 
-	//! Returns true if any of the statements in this block are a return statement
-	bool HasReturn() const;
-
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
+	friend class StmtAST;
 	vector<shared_ptr<StmtAST>> m_pStmts;
 }; // end class BlockAST
 
@@ -69,15 +71,15 @@ private:
 //! Conditional "if" AST node
 class ConditionalAST : public StmtAST {
 public:
-	//! Initialize with condition, true block, and optional else block
-	ConditionalAST( const shared_ptr<ExprAST>& pCondExpr, const shared_ptr<BlockAST>& pIfStmt, const shared_ptr<BlockAST>& pElseStmt ) :
+	//! Initialize with condition, true statement, and optional else statement
+	ConditionalAST( const shared_ptr<ExprAST>& pCondExpr, const shared_ptr<StmtAST>& pIfStmt, const shared_ptr<StmtAST>& pElseStmt ) :
 		m_pCondExpr(pCondExpr), m_pIfStmt(pIfStmt), m_pElseStmt(pElseStmt) { ASSERT( m_pIfStmt != NULL ); }
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
 	shared_ptr<ExprAST> m_pCondExpr;
-	shared_ptr<BlockAST> m_pIfStmt;
-	shared_ptr<BlockAST> m_pElseStmt;		// not null
+	shared_ptr<StmtAST> m_pIfStmt;
+	shared_ptr<StmtAST> m_pElseStmt;		// not null
 }; // end class ConditionalAST
 
 
@@ -108,3 +110,17 @@ public:
 private:
 	shared_ptr<ExprAST> m_pExpr;
 }; // end class ExprStmtAST
+
+
+//! Returns whether this generates code that has a return in the outermost basic block
+inline bool StmtAST::HasReturn() const {
+	if( dynamic_cast<const ReturnAST*>(this) ) return true;
+	const BlockAST* pBlock= dynamic_cast<const BlockAST*>(this);
+	if( pBlock ) {
+		for( uint i=0; i<pBlock->m_pStmts.size(); ++i ) {
+			if( dynamic_cast<const ReturnAST*>(pBlock->m_pStmts[i].get()) ) return true;
+		} // end for statement
+	} // end if block
+
+	return false;
+} // end StmtAST::HasReturn()

@@ -32,6 +32,9 @@ enum Token {
 	TOKEN_GT,
 	TOKEN_LE,
 	TOKEN_GE,
+
+	TOKEN_AND,
+	TOKEN_OR,
 	
 	TOKEN_DEF,
 	TOKEN_RETURN,

@@ -163,6 +163,13 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		return ErrorCodegen( "Lhs and rhs do not have the same type for comparison binary expression" );
 	} // end if error
 
+	// Handle binary operations on booleans
+	if( m_binop == TOKEN_AND ) {
+		return context.GetBuilder().CreateAnd( pLeft, pRight, "andtmp" );
+	} else if( m_binop == TOKEN_OR ) {
+		return context.GetBuilder().CreateOr( pLeft, pRight, "ortmp" );
+	}
+
 	// At this point we expect casts to have been done. We just have to see if the operands
 	// are floating point or integer
 	if( !m_pLeft->GetType()->ToBuiltin()->IsArithmetic() && !m_pRight->GetType()->ToBuiltin()->IsArithmetic() )
@@ -476,7 +483,8 @@ Function* FunctionAST::Codegen( CodegenContext& context, CodegenScope& scope ) c
 	m_pBody->Codegen( context, scope );
 
 	// If the function returns nothing, add a return statement at the end of the block
-	if( !m_pBody->HasReturn() && *m_pPrototype->GetReturnType() == *BuiltinTypeAST::GetVoid() ) {
+	if( !dynamic_pointer_cast<ReturnAST>(m_pBody) && !(dynamic_pointer_cast<BlockAST>(m_pBody) && dynamic_pointer_cast<BlockAST>(m_pBody)->HasReturn()) 
+			&& *m_pPrototype->GetReturnType() == *BuiltinTypeAST::GetVoid() ) {
 		context.GetBuilder().CreateRetVoid();
 	} // end if returning void
 
@@ -577,7 +585,10 @@ void ConditionalAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	
 	// Emit "then"
 	context.GetBuilder().SetInsertPoint( pThenBlock );
-	m_pIfStmt->Codegen( context, scope );
+	{
+		CodegenScope::ScopeEnterSentry s_scope( context, scope );
+		m_pIfStmt->Codegen( context, scope );
+	}
 	// Only create the branch to the merge block if there's no return statement
 	if( !m_pIfStmt->HasReturn() ) context.GetBuilder().CreateBr( pMergeBlock );
 
@@ -587,7 +598,10 @@ void ConditionalAST::Codegen( CodegenContext& context, CodegenScope& scope ) con
 	// Emit else block. If we have no else block, just emit a jump to the merge block
 	pFunction->getBasicBlockList().push_back( pElseBlock );
 	context.GetBuilder().SetInsertPoint( pElseBlock );
-	if( m_pElseStmt ) m_pElseStmt->Codegen( context, scope );
+	if( m_pElseStmt ) {
+		CodegenScope::ScopeEnterSentry s_scope( context, scope );
+		m_pElseStmt->Codegen( context, scope );
+	} // end if else statement exists
 
 	// Only create the branch to the merge block if there's no return statement
 	if( !m_pElseStmt || !m_pElseStmt->HasReturn() ) context.GetBuilder().CreateBr( pMergeBlock );
@@ -628,8 +642,11 @@ void ForAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Start insertion in the loop block
 	context.GetBuilder().SetInsertPoint( pLoopBlock );
 	
-	// Emit the body statement followed by the update expression
-	m_pBody->Codegen( context, scope );
+	// Emit the body statement followed by the update expression, in its own scope
+	{
+		CodegenScope::ScopeEnterSentry s_scopeInner( context, scope );
+		m_pBody->Codegen( context, scope );
+	}
 	Value* pUpdateValue= m_pUpdate->Codegen( context, scope );
 	if( !pUpdateValue ) return (void)ErrorCodegen( "Could not generate code in for loop update expression" );
 

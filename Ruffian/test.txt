@@ -83,6 +83,58 @@ def quicksort( int[] a, int n ) {
 	quicksort_helper( a, 0, n-1 );
 }
 
+def merge( int[] left, int[] right, int[] a, int n ) {
+	int nLeft= n/2;
+	int nRight= n - nLeft;
+	int iPos= 0;
+	int iLeft= 0;
+	int iRight= 0;
+	
+	for( bool bContinue= nLeft>0 | nRight>0; bContinue; bContinue= nLeft>0 | nRight>0 ) {
+		if( nLeft > 0 & nRight > 0 ) {
+			if( left[iLeft] <= right[iRight] ) {
+				a[iPos]= left[iLeft];
+				++iPos;
+				++iLeft;
+				--nLeft;
+			} else {
+				a[iPos]= right[iRight];
+				++iPos;
+				++iRight;
+				--nRight;
+			}
+		} else if( nLeft > 0 ) {
+			a[iPos]= left[iLeft];
+			++iPos;
+			++iLeft;
+			--nLeft;
+		} else if( nRight > 0 ) {
+			a[iPos]= right[iRight];
+			++iPos;
+			++iRight;
+			--nRight;
+		}		
+	}
+}
+
+def mergesort( int[] a, int n ) {
+	if( n <= 1 ) return;
+
+	int nLeft= n/2;
+	int nRight= n - nLeft;
+	int[nLeft] left;
+	int[nRight] right;
+
+	for( int i=0; i<nLeft; ++i ) left[i]= a[i];
+	for( int i=0; i<nRight; ++i ) right[i]= a[i+nLeft];
+
+	mergesort( left, nLeft );
+	mergesort( right, nRight );
+	merge( left, right, a, n );
+	 
+	return;
+}
+
 def main(int n) -> int {
 	int[n] array;
 
@@ -92,7 +144,7 @@ def main(int n) -> int {
 
 	printIntArray( array, n );
 	
-	quicksort( array, n );
+	mergesort( array, n );
 
 	printNewline();
 	printIntArray( array, n );

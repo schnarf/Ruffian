@@ -89,7 +89,7 @@ shared_ptr<ExprAST> Parser::parsePrimaryExpression() {
 		pExpr= parseArraySizeExpression();
 		if( !pExpr ) cerr << "Could not parse arraysize expression for primary expression\n";
 	} else {
-		cerr << "Expected identifier, literal, '(', or \"arraysize\" while parsing primary expression\n";
+		cerr << "Expected identifier, literal, '(', or \"arraysize\" while parsing primary expression, found " + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) + "\n";
 		return NULL;
 	}
 
@@ -565,13 +565,12 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 
 	switch( m_pLexer->GetCurrentToken() ) {
 	case TOKEN_RETURN: return parseReturnStatement();
-	case TOKEN_IDENTIFIER: return parsePrimaryStatement();
 	case TOKEN_LBRACE: return parseBlock();
 	case TOKEN_IF: return parseConditionalStatement();
 	case TOKEN_FOR: return parseForStatement();
-	default:
-		cerr << "Expected a statement, found \"" + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) + "\"\n";
-		return NULL;
+	// Parse everything else as a primary statement, since they can start
+	// with different kinds of tokens
+	default: return parsePrimaryStatement();
 	} // end switch current token
 } // end Parser::parseStatement()
 
@@ -586,17 +585,10 @@ shared_ptr<PrimaryStmtAST> Parser::parsePrimaryStatement() {
 		::= variable_declaration
 	*/
 
-	// We expect an identifier
-	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-		cerr << "Expected an identifier while parsing a primary statement\n";
-		return NULL;
-	} // end if no identifier
-
 	// This is either a variable declaration statement or expression statement
-	// If the identifier is a type we recognize, then parse it as a variable
-	// declaration, otherwise try to parse an expression
-
-	if( findTypeInScope(m_pLexer->GetIdentifier()) ) {
+	// If we have an identifier aand the identifier is a type we recognize, then
+	// parse it as a variable declaration, otherwise try to parse an expression
+	if( m_pLexer->GetCurrentToken() == TOKEN_IDENTIFIER && findTypeInScope(m_pLexer->GetIdentifier()) ) {
 		// Parse this as a variable declaration
 		return parseVariableDeclaration();
 	} else {
@@ -738,7 +730,7 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	if( pInitializer ) {
 		if( *pType != *pInitializer->GetType() ) {
 			if( !IsImplicitCastAllowed(pInitializer, pType) ) {
-				cerr << "Cannot implicitly convert variable initializer of type \"" + pInitializer->GetType()->GetName() + "\" to declaration of type \"" + pType->GetName() << endl;
+				cerr << "Cannot implicitly convert variable initializer of type \"" + pInitializer->GetType()->GetName() + "\" to declaration of type \"" + pType->GetName() + "\"\n";
 				return NULL;
 			} // end if no implicit cast
 
@@ -962,7 +954,7 @@ shared_ptr<LiteralAST> Parser::parseLiteral() {
 shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 	/*
 	conditional_statement
-		::= if '(' expression ')' block
+		::= if '(' expression ')' statement
 		::= conditional_stmt else conditional_stmt
 	*/
 
@@ -994,29 +986,41 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 	} // end if no right paren
 	m_pLexer->GetNextToken();
 
-	// Parse the block
-	shared_ptr<BlockAST> pBlock( parseBlock() );
-	if( !pBlock ) {
-		cerr << "Expected a block while parsing a conditional statement\n";
+	// Parse the statement in its own scope
+	shared_ptr<StmtAST> pStatement;
+	{
+		ScopeSentry s_scope( this );
+		pStatement= parseStatement();
+	}
+	if( !pStatement ) {
+		cerr << "Expected a statement while parsing a conditional statement\n";
 		return NULL;
 	} // end if no block
 
 	// Check for "else". If we find an else, keep parsing recursively
-	shared_ptr<BlockAST> pElseBlock;
+	shared_ptr<StmtAST> pElseStmt;
 	if( m_pLexer->GetCurrentToken() == TOKEN_ELSE ) {
 		// Eat the else
 		m_pLexer->GetNextToken();
 
 		// Now we either expect a left brace or "if"
 		if( m_pLexer->GetCurrentToken() == TOKEN_LBRACE ) {
-			pElseBlock= parseBlock();
-			if( !pElseBlock ) {
-				cerr << "Expected an else block while parsing a conditional statement\n";
+			{
+				// Parse the statement in its own scope
+				ScopeSentry s_scope( this );
+				pElseStmt= parseStatement();
+			}
+			if( !pElseStmt ) {
+				cerr << "Expected an else statement while parsing a conditional statement\n";
 				return NULL;
 			} // end if no else block
 		} else if( m_pLexer->GetCurrentToken() == TOKEN_IF ) {
 			// Parse the next "if" block
-			shared_ptr<ConditionalAST> pNextConditional( parseConditionalStatement() );
+			shared_ptr<ConditionalAST> pNextConditional;
+			{
+				ScopeSentry s_scope( this );
+				pNextConditional= parseConditionalStatement();
+			}
 			if( !pNextConditional ) {
 				cerr << "Expected an else if block while parsing a conditional statement\n";
 				return NULL;
@@ -1025,14 +1029,14 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 			// Build a block containing the next conditional
 			vector<shared_ptr<StmtAST>> pExprs;
 			pExprs.push_back( pNextConditional );
-			pElseBlock.reset( new BlockAST(pExprs) );
+			pElseStmt.reset( new BlockAST(pExprs) );
 		} else {
 			cerr << "Expected '{' or \"if\" after \"else\" while parsing a conditional statement\n";
 			return NULL;
 		}
 	}
 
-	return shared_ptr<ConditionalAST>( new ConditionalAST(pCondExpr, pBlock, pElseBlock) );
+	return shared_ptr<ConditionalAST>( new ConditionalAST(pCondExpr, pStatement, pElseStmt) );
 } // end Parser::parseConditionalStatement()
 
 
@@ -1097,8 +1101,12 @@ shared_ptr<ForAST> Parser::parseForStatement() {
 	} // end if no rparen
 	m_pLexer->GetNextToken();
 
-	// Parse the body statement
-	shared_ptr<StmtAST> pBody= parseStatement();
+	// Parse the body statement in its own scope
+	shared_ptr<StmtAST> pBody;
+	{
+		ScopeSentry s_scopeInner( this );
+		pBody= parseStatement();
+	}
 	if( !pBody ) {
 		cerr << "Could not parse body in for statement\n";
 		return NULL;
