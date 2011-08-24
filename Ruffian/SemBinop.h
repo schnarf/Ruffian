@@ -31,10 +31,13 @@ inline const shared_ptr<const TypeAST>& GetBinopType( Token binop, const shared_
 	case TOKEN_GE:
 	case TOKEN_NEQ:
 	case TOKEN_EQ:
-	case TOKEN_AND:
-	case TOKEN_OR:
 		// These comparison operators all give a bool
 		return BuiltinTypeAST::GetBool();
+	case TOKEN_AND:
+	case TOKEN_OR:
+		// These comparison operators all return bool, but both operands also must be bool or it's an error
+		if( *l == *BuiltinTypeAST::GetBool() && *r == *BuiltinTypeAST::GetBool() ) return BuiltinTypeAST::GetBool();
+		else return BuiltinTypeAST::GetError();
 	default:
 		ASSERT( false );
 		return BuiltinTypeAST::GetError();
