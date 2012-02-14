@@ -1,0 +1,62 @@
+There are three different kinds of array types. An array is a flat list of values
+that can be accessed with the [] operator. The three types of arrays are static
+arrays (allocated on the stack), dynamic arrays (allocated on the heap), and
+unsized arrays (basically pointers, no scope).
+
+Outstanding questions:
+- Would it be useful to have a way to explicitly force a dynamic array?
+- Should unsized arrays carry their size around with them?
+
+Static arrays
+==================================
+A static array is an array whose size is a compile-time constant.
+A static array is declared like this, for example:
+
+	int[8] array;
+
+Storage is allocated automatically on the stack, and freed automatically when the
+array goes out of scope.
+
+Dynamic arrays
+==================================
+A dynamic array is an array whose size is specified, but is not a compile-time
+constant. A dynamic array is declared like this, for example,
+
+	int[2*n] array;
+
+Storage is allocated automatically on the heap, and is freed automatically when the
+array goes out of scope. In other words, this behaves just like a static array,
+except for that its size doesn't have to be a constant (i.e. it can be determined
+by an argument to a function), and that there is some overhead due to malloc() and free().
+Note there is no reference counting. Just like in C with an array on the stack, if you
+pass the array to a function that happens to store its address somewhere, then the dynamic
+array goes out of scope, if that address is referenced again, it's a bug.
+
+Unsized arrays
+==================================
+An unsized array is like a pointer in C. It points to a region of memory that can
+be accessed like an array. Static and dynamic arrays are implicitly convertable
+to unsized arrays. An unsized array doesn't necessarily have to point to the first
+element of an array. An unsized array can be declared like this, for example:
+
+	int[] unsized_array= array;
+
+Why have this in addition to pointers? The idea is that a pointer is different
+from an array. A pointer cannot be indexed. In C, we can do this:
+	
+	some_struct* p= (some_struct*)malloc(sizeof(some_struct));
+	do_something( p[1] );
+
+Even though "p[1]" is not a sensible thing to do. It should be possible to
+explicitly allocate memory for an unsized array, but a syntax needs to be
+designed for this. Something like:
+
+	int[] array= new int[5];
+
+The same disclaimer as for dynamic arrays applies: there's no reference counting.
+
+Getting an array's size
+==================================
+The arraysize() operator gives the size of a static or dynamic array. If it's a
+static array, it's a compile-time constant, otherwise it is not. Using arraysize()
+on an unsized array is a compilation error.
