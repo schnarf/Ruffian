@@ -25,7 +25,7 @@ static void printDouble( double f ) {
 } // end printDouble()
 
 static int rand_lib() {
-	return rand();
+	return rand() - 5000;
 } // end rand_lib()
 
 static char* malloc_lib( uint64 nBytes ) {

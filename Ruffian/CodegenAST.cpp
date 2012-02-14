@@ -176,7 +176,13 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		return ErrorCodegen( "Cannot generate binary operation code for non-arithmetic types" );
 	if( m_pLeft->GetType()->ToBuiltin()->IsFloatingPoint() != m_pRight->GetType()->ToBuiltin()->IsFloatingPoint() )
 		return ErrorCodegen( "Lhs and rhs are not both floating point or integer types" );
-	bool bIntegral= m_pLeft->GetType()->ToBuiltin()->IsIntegral();
+  if( m_pLeft->GetType()->ToBuiltin()->IsIntegral() != m_pRight->GetType()->ToBuiltin()->IsIntegral() )
+    return ErrorCodegen( "Lhs and rhs are not both integral types" );
+  if( m_pLeft->GetType()->ToBuiltin()->IsSigned() != m_pRight->GetType()->ToBuiltin()->IsSigned() )
+    return ErrorCodegen( "Lhs and rhs do not have the same signedness" );
+	const bool bFloatingPoint= m_pLeft->GetType()->ToBuiltin()->IsFloatingPoint(),
+             bIntegral= m_pLeft->GetType()->ToBuiltin()->IsIntegral(),
+             bSigned= m_pLeft->GetType()->ToBuiltin()->IsSigned();
 	switch( m_binop ) {
 	case TOKEN_PLUS: return bIntegral
 						 ? context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" )
@@ -188,37 +194,45 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 						 ? context.GetBuilder().CreateMul( pLeft, pRight, "multmp" )
 						 : context.GetBuilder().CreateFMul( pLeft, pRight, "multmp" );
 	case TOKEN_SLASH: 
-		if( m_pLeft->GetType()->ToBuiltin()->IsSigned() && m_pRight->GetType()->ToBuiltin()->IsSigned() )
+		if( bIntegral && bSigned )
 			return context.GetBuilder().CreateSDiv( pLeft, pRight, "divtmp" );
-		else if( m_pLeft->GetType()->ToBuiltin()->IsUnsigned() && m_pRight->GetType()->ToBuiltin()->IsUnsigned() )
+		else if( bIntegral && !bSigned )
 			return context.GetBuilder().CreateUDiv( pLeft, pRight, "divtmp" );
-		else if( m_pLeft->GetType()->ToBuiltin()->IsFloatingPoint() && m_pRight->GetType()->ToBuiltin()->IsFloatingPoint() )
+		else if( bFloatingPoint )
 			return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
 	
-		// For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
+  // For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
 	case TOKEN_EQ:
-		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
+		return bIntegral
 			? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
 	case TOKEN_NEQ:
-		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
+		return bIntegral
 			? context.GetBuilder().CreateICmpNE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUNE( pLeft, pRight, "cmptmp" );
 	case TOKEN_LT:
-		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
-			? context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
+		return bIntegral
+      ? bSigned
+        ? context.GetBuilder().CreateICmpSLT( pLeft, pRight, "cmptmp" )
+        : context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
 	case TOKEN_GT:
-		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
-			? context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
+		return bIntegral
+			? bSigned
+        ? context.GetBuilder().CreateICmpSGT( pLeft, pRight, "cmptmp" )
+        : context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
 	case TOKEN_LE:
-		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
-			? context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
+		return bIntegral
+			? bSigned
+        ? context.GetBuilder().CreateICmpSLE( pLeft, pRight, "cmptmp" )
+        : context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
 	case TOKEN_GE:
-		return m_pLeft->GetType()->ToBuiltin()->IsIntegral()
-			? context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
+		return bIntegral
+			? bSigned
+        ? context.GetBuilder().CreateICmpSGE( pLeft, pRight, "cmptmp" )
+        : context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
 			: context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
 	default:
 		return ErrorCodegen( string("Unhandled binary operator '") + Lexer::StringifyToken(m_binop) + "' for binary expression" );
@@ -419,13 +433,18 @@ Value* CastAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		const ArrayTypeAST* pArray= m_pExpr->GetType()->ToArray(),
 		                  * pArrayTarget= m_pType->ToArray();
 
-		// Allow casts of sized arrays to unsized arrays of the same type
-		if( *pArray->GetElementType() == *pArrayTarget->GetElementType() && pArray->GetLengthExpression() && !pArrayTarget->GetLengthExpression() && !pArray->GetLengthExpression()->IsConstant() ) {
+		// Allow casts of dynamic arrays to unsized arrays of the same type
+		if( *pArray->GetElementType() == *pArrayTarget->GetElementType()
+      && pArray->GetLengthExpression()
+      && !pArrayTarget->GetLengthExpression()
+      /*&& !pArray->GetLengthExpression()->IsConstant()*/ ) {
+
 			// We need the address of the value rather than the load instruction for the actual value
 			if( !m_pExpr->IsLValue() ) return ErrorCodegen( "Expected an lvalue when casting from sized to unsized array" );
 			pValue= m_pExpr->ToLValue()->CodegenAddress( context, scope );
 			return context.GetBuilder().CreatePointerCast( pValue, pArray->GetElementType()->Codegen(context, scope)->getPointerTo(), "array_ptr_decay" );
 		} // end if sized to unsized array cast
+
 	}
 
 	// Unhandled case

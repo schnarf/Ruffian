@@ -149,5 +149,14 @@ def main(int n) -> int {
 	printNewline();
 	printIntArray( array, n );
 
+	int[4] staticArray;
+	staticArray[0]= 5;
+	staticArray[1]= -1;
+	staticArray[2]= 0;
+	staticArray[3]= 100;
+	mergesort( staticArray, arraysize(staticArray) );
+	printNewline();
+	printIntArray( staticArray, arraysize(staticArray) );
+
 	return 0;
 }
