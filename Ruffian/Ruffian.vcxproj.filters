@@ -28,6 +28,9 @@
     <Filter Include="Source Files\Codegen">
       <UniqueIdentifier>{35ced023-b7d4-4d23-8f9e-641e12208967}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\Spec">
+      <UniqueIdentifier>{b1b54794-2697-4351-b225-cee0d9b9affc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -129,6 +132,12 @@
     </None>
     <None Include="..\TODO">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Spec\Arrays.txt">
+      <Filter>Resource Files\Spec</Filter>
+    </None>
+    <None Include="..\Spec\Casts.txt">
+      <Filter>Resource Files\Spec</Filter>
     </None>
   </ItemGroup>
 </Project>

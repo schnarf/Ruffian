@@ -133,6 +133,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README" />
+    <None Include="..\Spec\Arrays.txt" />
+    <None Include="..\Spec\Casts.txt" />
     <None Include="..\TODO" />
     <None Include="test.txt" />
     <None Include="TestMultipleBinop.txt" />

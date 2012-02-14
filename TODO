@@ -1,5 +1,6 @@
 Language Design
 ==================================
+- Finish up array types.
 - Define how & and | operators work. Can we make it so it's not necessary to distinguish
   bitwise and logical, since booleans and arithmetic types can't be implicitly mixed?
 - POINTERS!
@@ -7,6 +8,9 @@ Language Design
   or mangle the name so that there's no problem at codegen time
 - Consider not requiring "def". Does it add anything? Does the non-C-like syntax for functions
   add anything? It shouldn't be hard to change the parser, but let's think about the syntax.
+- Add a constexpr sort of thing. It would be good to make the notion of compile time constants
+  a little more useful than just something whose AST leaves are all literals. This will, for
+  example, make static arrays more useful.
 
 Compiler
 ==================================
