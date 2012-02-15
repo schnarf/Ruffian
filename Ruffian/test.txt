@@ -1,162 +1,18 @@
-def factorial ( int n ) -> int {
-	if( n == 0 ) { return 1; }
-	return n * factorial(n - 1);
-}
-
-def fibonacci( int n ) -> int {
-	if( n < 3 ) { return 1; }
-	return fibonacci(n-1) + fibonacci(n-2);
-}
-
+// Prototypes for standard library functions
 def printInt(int n);
 def printFloat(float f);
 def printDouble(double f);
 def printNewline();
 def rand() -> int;
 
-def printIntArray( int[] array, int n ) {
-	for( int i=0; i<n; ++i ) {
-		printInt( array[i] );
-	}
-}
-
-def insertion_sort( int[] a, int n ) {
-	for( int i=0; i<n; ++i ) {
-		int min= i;
-		for( int j=i+1; j<n; ++j ) {
-			if( a[j] < a[min] ) { min= j; }
-		}
-		int temp= a[i];
-		a[i]= a[min];
-		a[min]= temp;
-	}
-}
-
-// iLeft is the index of the leftmost array element
-// iRight is the index of the rightmost array element, inclusive
-// Arranges the elements between iLeft and iRight so that the ones
-// less than the pivot come before it, and the ones greater than
-// it come after, and moves the pivot into its final position, returning that position
-def partition( int[] a, int iLeft, int iRight, int iPivot ) -> int {
-	int iPivotValue= a[iPivot];
-	int temp;
-
-	// Move pivot to end
-	temp= a[iPivot];
-	a[iPivot]= a[iRight];
-	a[iRight]= temp;
-
-	int iStore= iLeft;
-	for( int i=iLeft; i<iRight; ++i ) {
-		if( a[i] < iPivotValue ) {
-			temp= a[i];
-			a[i]= a[iStore];
-			a[iStore]= temp;
-			iStore= iStore + 1;
-		}
-	}
-
-	// Move pivot to its final place
-	temp= a[iStore];
-	a[iStore]= a[iRight];
-	a[iRight]= temp;
-
-	return iStore;
-}
-
-def quicksort_helper( int[] a, int iLeft, int iRight ) {
-	// If the list is empty or one item, it's sorted
-	if( iLeft >= iRight ) { return; }
-
-	// Choose a pivot
-	int iPivot= (iLeft + iRight) / 2;
-
-	// Partition the array
-	int iNewPivot= partition( a, iLeft, iRight, iPivot );
-
-	// Recursively sort the left and right parts
-	quicksort_helper( a, iLeft, iNewPivot-1 );
-	quicksort_helper( a, iNewPivot+1, iRight );
-}
-
-def quicksort( int[] a, int n ) {
-	quicksort_helper( a, 0, n-1 );
-}
-
-def merge( int[] left, int[] right, int[] a, int n ) {
-	int nLeft= n/2;
-	int nRight= n - nLeft;
-	int iPos= 0;
-	int iLeft= 0;
-	int iRight= 0;
-	
-	while( nLeft > 0 | nRight > 0 ) {
-		if( nLeft > 0 & nRight > 0 ) {
-			if( left[iLeft] <= right[iRight] ) {
-				a[iPos]= left[iLeft];
-				++iPos;
-				++iLeft;
-				--nLeft;
-			} else {
-				a[iPos]= right[iRight];
-				++iPos;
-				++iRight;
-				--nRight;
-			}
-		} else if( nLeft > 0 ) {
-			a[iPos]= left[iLeft];
-			++iPos;
-			++iLeft;
-			--nLeft;
-		} else if( nRight > 0 ) {
-			a[iPos]= right[iRight];
-			++iPos;
-			++iRight;
-			--nRight;
-		}		
-	}
-}
-
-def mergesort( int[] a, int n ) {
-	if( n <= 1 ) return;
-
-	int nLeft= n/2;
-	int nRight= n - nLeft;
-	int[nLeft] left;
-	int[nRight] right;
-
-	for( int i=0; i<nLeft; ++i ) left[i]= a[i];
-	for( int i=0; i<nRight; ++i ) right[i]= a[i+nLeft];
-
-	mergesort( left, nLeft );
-	mergesort( right, nRight );
-	merge( left, right, a, n );
-	 
-	return;
-}
-
 def main(int n) -> int {
-	int[n] array;
-
-	for( int i=0; i<n; ++i ) {
-		array[i]= rand();
+	for( int i=0; i<4; ++i ) {
+		printInt(i);
 	}
 
-	printIntArray( array, n );
-	
-	mergesort( array, n );
-
-	printNewline();
-	printIntArray( array, n );
-
-	int[4] staticArray;
-	staticArray[0]= 5;
-	staticArray[1]= -1;
-	staticArray[2]= 0;
-	staticArray[3]= 100;
-	mergesort( staticArray, arraysize(staticArray) );
-	printNewline();
-	printIntArray( staticArray, arraysize(staticArray) );
+	foreach( int i; 0:4 ) {
+		printInt(i);
+	}
 
 	return 0;
 }

@@ -33,6 +33,7 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_COMMA: return ",";
 	case TOKEN_SEMICOLON: return ";";
 	case TOKEN_ARROW: return "->";
+  case TOKEN_COLON: return ":";
 	case TOKEN_PLUS: return "+";
 	case TOKEN_MINUS: return "-";
 	case TOKEN_STAR: return "*";
@@ -54,6 +55,7 @@ string Lexer::StringifyToken( Token token ) {
 	case TOKEN_IF: return "if";
 	case TOKEN_ELSE: return "else";
 	case TOKEN_FOR: return "for";
+  case TOKEN_FOREACH: return "foreach";
 	case TOKEN_DO: return "do";
 	case TOKEN_WHILE: return "while";
 	case TOKEN_ARRAYSIZE: return "arraysize";
@@ -137,6 +139,7 @@ Token Lexer::getTok() {
 		else if( m_strIdentifier == "if" ) return TOKEN_IF;
 		else if( m_strIdentifier == "else" ) return TOKEN_ELSE;
 		else if( m_strIdentifier == "for" ) return TOKEN_FOR;
+    else if( m_strIdentifier == "foreach" ) return TOKEN_FOREACH;
 		else if( m_strIdentifier == "do" ) return TOKEN_DO;
 		else if( m_strIdentifier == "while" ) return TOKEN_WHILE;
 		else if( m_strIdentifier == "arraysize" ) return TOKEN_ARRAYSIZE;
@@ -243,6 +246,7 @@ Token Lexer::getTok() {
 	case ']': token= TOKEN_RBRACKET; bEatChar= true; break;
 	case ',': token= TOKEN_COMMA; bEatChar= true; break;
 	case ';': token= TOKEN_SEMICOLON; bEatChar= true; break;
+  case ':': token= TOKEN_COLON; bEatChar= true; break;
 	case '<':
 		if( readChar() == '=' ) { token= TOKEN_LE; bEatChar= true; }
 		else { token= TOKEN_LT; bEatChar= false; }

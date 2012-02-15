@@ -4,7 +4,7 @@ class Lexer;
 enum Token;
 class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST;
 class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST;
-class PrototypeAST; class ModuleAST; class ForAST; class PrimaryStmtAST; class CastAST; class WhileAST;
+class PrototypeAST; class ModuleAST; class ForAST; class ForRangeAST; class PrimaryStmtAST; class CastAST; class WhileAST;
 
 class Parser {
 public:
@@ -20,7 +20,7 @@ public:
 private:
 	shared_ptr<Lexer> m_pLexer;			//!< Our lexer
 	
-	//! Parses a primary expression
+	//! Parses a primary expression.
 	shared_ptr<ExprAST> parsePrimaryExpression();
 	//! Parses an identifier expression (variable or function call)
 	shared_ptr<ExprAST> parseIdentifierExpression();
@@ -31,7 +31,7 @@ private:
 	//! Parses an arraysize expression
 	shared_ptr<ExprAST> parseArraySizeExpression();
 
-	//! Parses a unary operator expression
+	//! Parses a unary operator expression.
 	shared_ptr<ExprAST> parseUnaryOpExpression();
 
 	//! Parses the right-hand side of a binary expression, given the left-hand side and its highest-precedence operator
@@ -44,17 +44,17 @@ private:
 	shared_ptr<BlockAST> parseBlock();
 	//! Parses a statement
 	shared_ptr<StmtAST> parseStatement();
-	//! Parses a primary statement
+	//! Parses a primary statement.
 	shared_ptr<PrimaryStmtAST> parsePrimaryStatement();
-	//! Parses an expression
+	//! Parses an expression.
 	shared_ptr<ExprAST> parseExpression();
 	//! Parses a return statement
 	shared_ptr<ReturnAST> parseReturnStatement();
-	//! Parses a variable declaration
+	//! Parses a variable declaration.
 	shared_ptr<DeclarationAST> parseVariableDeclaration();
 	//! Parses a variable identifier
 	shared_ptr<VariableAST> parseVariable();
-	//! Parses a type identifier
+	//! Parses a type identifier.
 	shared_ptr<const TypeAST> parseType();
 	//! Parses a function call expression, having already parsed the function name
 	shared_ptr<CallAST> parseCallExpression( const string& strName );
@@ -65,7 +65,9 @@ private:
 	//! Parses a conditional statement
 	shared_ptr<ConditionalAST> parseConditionalStatement();
 	//! Parses a for statement
-	shared_ptr<ForAST> parseForStatement();
+	shared_ptr<StmtAST> parseForStatement();
+  //! Parses a for range statement
+  shared_ptr<ForRangeAST> parseForRangeStatement();
 	//! Parses a while statement
 	shared_ptr<WhileAST> parseWhileStatement();
 

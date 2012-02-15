@@ -13,6 +13,7 @@ enum Token {
 	TOKEN_COMMA,
 	TOKEN_SEMICOLON,
 	TOKEN_ARROW,
+  TOKEN_COLON,
 
 	TOKEN_PLUS,
 	TOKEN_MINUS,
@@ -41,6 +42,7 @@ enum Token {
 	TOKEN_IF,
 	TOKEN_ELSE,
 	TOKEN_FOR,
+  TOKEN_FOREACH,
 	TOKEN_DO,
 	TOKEN_WHILE,
 
@@ -86,12 +88,12 @@ public:
 	//! Returns whether the current token is a postfix unary operator
 	static bool IsPostUnaryOpToken( Token token );
 private:
-	shared_ptr<FILE> m_pFile;			//!< Our file to read from
+	shared_ptr<FILE> m_pFile;		//!< Our file to read from
 
-	char m_lastChar;					//!< Our last read character
+	char m_lastChar;					  //!< Our last read character
 	Token m_currentToken;				//!< Our current token
 
-	string m_strIdentifier;				//!< Identifier string, filled in for identifier tokens
+	string m_strIdentifier;			//!< Identifier string, filled in for identifier tokens
 	string m_strLiteral;				//!< Literal string, filled in for literal tokens
 
 	//! Gets the next token

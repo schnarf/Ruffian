@@ -46,6 +46,8 @@ public:
 	const string& GetName() const { return m_strName; }
 	//! Returns our type
 	const shared_ptr<const TypeAST>& GetType() const { ASSERT( m_pType ); return m_pType; }
+  //! Returns whether we have an initializer
+  bool HasInitializer() const { return m_pInitializer; }
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -98,6 +100,28 @@ private:
 	shared_ptr<StmtAST> m_pBody;
 }; // end class ForAST
 
+
+//! Range for loop AST node
+class ForRangeAST : public StmtAST {
+public:
+  //! Initialize with declaration, variable, begin, and end, plus the body statement
+  ForRangeAST( const shared_ptr<DeclarationAST>& pDeclaration, const shared_ptr<VariableAST>& pVariable,
+               const shared_ptr<ExprAST>& pBegin, const shared_ptr<ExprAST>& pEnd, const shared_ptr<StmtAST>& pBody ) :
+    m_pDeclaration(pDeclaration), m_pVariable(pVariable),
+    m_pBegin(pBegin), m_pEnd(pEnd), m_pBody(pBody) {}
+  //! Initialize with variable, begin, and end, plus the body statement
+  ForRangeAST( const shared_ptr<VariableAST>& pVariable, const shared_ptr<ExprAST>& pBegin,
+               const shared_ptr<ExprAST>& pEnd, const shared_ptr<StmtAST>& pBody ) :
+    m_pDeclaration(), m_pVariable(pVariable), m_pBegin(pBegin), m_pEnd(pEnd), m_pBody(pBody) {}
+  
+  virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
+private:
+  shared_ptr<DeclarationAST> m_pDeclaration;    //!< Variable declaration. NULL if no variable declared
+  shared_ptr<VariableAST> m_pVariable;          //!< Our loop variable
+  shared_ptr<ExprAST> m_pBegin,
+                      m_pEnd;
+  shared_ptr<StmtAST> m_pBody;
+}; // end class ForRangeAST
 
 //! While loop AST node
 class WhileAST : public StmtAST {

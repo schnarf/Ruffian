@@ -682,6 +682,63 @@ void ForAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 } // end ForAST::Codegen()
 
 
+void ForRangeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
+  /* When counting up, output this as:
+		index = begin
+		goto loop
+	loop:
+		body_statement
+    ++index
+		endcond = index < end
+		br endcond, loop, endloop
+	endloop:
+	*/
+
+	// Enter a new scope
+	CodegenScope::ScopeEnterSentry s_scope( context, scope );
+
+  // Emit the declaration if there is one
+  if( m_pDeclaration ) m_pDeclaration->Codegen( context, scope );
+
+	// Emit the initializer expression
+  BinopAST initializer( TOKEN_ASSIGN, m_pVariable, m_pBegin );
+	initializer.Codegen( context, scope );
+
+	// Make the new basic block for the loop header, inserting after current block
+	Function* pFunction= context.GetBuilder().GetInsertBlock()->getParent();
+	BasicBlock* pLoopBlock= BasicBlock::Create( getGlobalContext(), "loop", pFunction );
+
+	// Create an explicit fallthrough from the current block to the loop block
+	context.GetBuilder().CreateBr( pLoopBlock );
+
+	// Start insertion in the loop block
+	context.GetBuilder().SetInsertPoint( pLoopBlock );
+	
+	// Emit the body statement followed by the condition and update expression, in its own scope
+	{
+		CodegenScope::ScopeEnterSentry s_scopeInner( context, scope );
+		m_pBody->Codegen( context, scope );
+	}
+  
+  // Compute the update expression: ++index
+  PrefixUnaryAST updateExpr( TOKEN_INCREMENT, m_pVariable );
+	Value* pUpdateValue= updateExpr.Codegen( context, scope );
+	if( !pUpdateValue ) return (void)ErrorCodegen( "Could not generate code in for loop update expression" );
+
+  // Compute the end condition
+  BinopAST endCondition( TOKEN_LT, m_pVariable, m_pEnd );
+  Value* pCondition= endCondition.Codegen( context, scope );
+	if( !pCondition ) return (void)ErrorCodegen( "Could not generate code in for loop condition expression" );
+
+	// Create the end loop block and add the conditional branch to it
+	BasicBlock* pLoopEndBlock= BasicBlock::Create( getGlobalContext(), "endloop", pFunction );
+	context.GetBuilder().CreateCondBr( pCondition, pLoopBlock, pLoopEndBlock );
+
+	// Set the insert point for any additional code to the loop end block
+	context.GetBuilder().SetInsertPoint( pLoopEndBlock ); 
+} // end ForRangeAST::Codegen()
+
+
 void WhileAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	/* Output this as:
 		goto loop

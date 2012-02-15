@@ -139,5 +139,8 @@
     <None Include="..\Spec\Casts.txt">
       <Filter>Resource Files\Spec</Filter>
     </None>
+    <None Include="..\Spec\Loops.txt">
+      <Filter>Resource Files\Spec</Filter>
+    </None>
   </ItemGroup>
 </Project>

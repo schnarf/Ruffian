@@ -63,7 +63,7 @@ ModuleAST* Parser::Run() {
 } // end Parser::Run()
 
 
-//! Parses a primary expression
+//! Parses a primary expression.
 shared_ptr<ExprAST> Parser::parsePrimaryExpression() {
 	/*
 	primary_expression
@@ -243,7 +243,7 @@ shared_ptr<ExprAST> Parser::parseArraySizeExpression() {
 } // end Parser::parseArraySizeExpression()
 
 
-//! Parses a unary operator expression
+//! Parses a unary operator expression.
 shared_ptr<ExprAST> Parser::parseUnaryOpExpression() {
 	/*
 	unary_op_expr
@@ -561,6 +561,7 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 		::= block
 		::= conditional_statement
 		::= for_statement
+    ::= for_range_statement
 		::= while_statement
 	*/
 
@@ -569,6 +570,7 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 	case TOKEN_LBRACE: return parseBlock();
 	case TOKEN_IF: return parseConditionalStatement();
 	case TOKEN_FOR: return parseForStatement();
+  case TOKEN_FOREACH: return parseForRangeStatement();
 	case TOKEN_WHILE: return parseWhileStatement();
 	// Parse everything else as a primary statement, since they can start
 	// with different kinds of tokens
@@ -577,7 +579,7 @@ shared_ptr<StmtAST> Parser::parseStatement() {
 } // end Parser::parseStatement()
 
 
-//! Parses a primary statement
+//! Parses a primary statement.
 shared_ptr<PrimaryStmtAST> Parser::parsePrimaryStatement() {
 	// For now, it might be helpful to think of a primary statement as one that starts with an identifer
 
@@ -614,7 +616,7 @@ shared_ptr<PrimaryStmtAST> Parser::parsePrimaryStatement() {
 } // end Parser::parsePrimaryStatement()
 
 
-//! Parses an expression
+//! Parses an expression.
 shared_ptr<ExprAST> Parser::parseExpression() {
 	/*
 	expression
@@ -680,7 +682,7 @@ shared_ptr<ReturnAST> Parser::parseReturnStatement() {
 } // end Parser::parseReturnStatement()
 
 
-//! Parses a variable declaration
+//! Parses a variable declaration.
 shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 	/* variable_declaration
 		::= type identifier ';'
@@ -720,7 +722,7 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 		pInitializer= parseExpression();
 		if( !pInitializer ) return NULL;
 	} else if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
-		cerr << "Expected ';' or '=' while parsing a variable declaration, found \"" + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) + " " + m_pLexer->GetIdentifier() +  "\"\n";
+		cerr << "Expected ';' or '=' while parsing a variable declaration, found \"" + Lexer::StringifyToken(m_pLexer->GetCurrentToken()) +  "\"\n";
 		return NULL;
 	}
 
@@ -773,7 +775,7 @@ shared_ptr<VariableAST> Parser::parseVariable() {
 } // end Parser::parseVariable()
 
 
-//! Parses a type identifier
+//! Parses a type identifier.
 shared_ptr<const TypeAST> Parser::parseType() {
 	/* type ::= identifier */
 	if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
@@ -781,7 +783,7 @@ shared_ptr<const TypeAST> Parser::parseType() {
 		return NULL;
 	} // end if no identifier
 
-	string strName= m_pLexer->GetIdentifier();
+	const string strName= m_pLexer->GetIdentifier();
 	m_pLexer->GetNextToken();
 
 	// Look up the type
@@ -1049,7 +1051,7 @@ shared_ptr<ConditionalAST> Parser::parseConditionalStatement() {
 
 
 //! Parses a for statement
-shared_ptr<ForAST> Parser::parseForStatement() {
+shared_ptr<StmtAST> Parser::parseForStatement() {
 	/*
 	for_statement
 		::= 'for' '(' primary_statement expression ';' expression ')' statement
@@ -1129,6 +1131,144 @@ shared_ptr<ForAST> Parser::parseForStatement() {
 	return shared_ptr<ForAST>( new ForAST(pInitializer, pCondition, pUpdate, pBody) );
 } // end Parser::parseForStatement()
 
+namespace {
+  //! If \a pExpr is not of type \a pType, returns a cast expression of \a pExpr
+  //! to \a pType. Otherwise returns \a pExpr
+  shared_ptr<ExprAST> castIfNecessary( shared_ptr<ExprAST> pExpr, const shared_ptr<const TypeAST>& pType ) {
+    if( *pExpr->GetType() == *pType ) return pExpr;
+    return shared_ptr<ExprAST>( new CastAST(pExpr, pType) );
+  } // end castIfNecessary()
+}
+
+//! Parses a for-range statement
+shared_ptr<ForRangeAST> Parser::parseForRangeStatement() {
+  /*
+	for_range_statement
+		::= 'foreach' '(' for_range_index ';' expression ':' expression ')' statement
+
+  for_range_index
+    ::= type identifier
+    ::= identifier
+	*/
+
+  // Start a new scope for any variable that might be declared in the initializer statement
+	ScopeSentry s_scope( this );
+  
+  // Eat the "foreach"
+  if( m_pLexer->GetCurrentToken() != TOKEN_FOREACH ) {
+    cerr << "Expected \"foreach\" at beginning of for-range statement\n";
+    return NULL;
+  }
+  m_pLexer->GetNextToken();
+
+  // Eat the paren
+  if( m_pLexer->GetCurrentToken() != TOKEN_LPAREN ) {
+    cerr << "Expected '(' at beginning of for-range statement\n";
+    return NULL;
+  }
+  m_pLexer->GetNextToken();
+
+  // Parse the index. We expect an identifier, which is either a type or a variable
+  if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
+    cerr << "Expected identifier while parsing for-range index\n";
+    return NULL;
+  }
+
+  // Check if the identifier is a type or not. If it's a type, parse it as a variable
+  // declaration, otherwise parse it as a variable
+  shared_ptr<DeclarationAST> pDeclaration;
+  shared_ptr<VariableAST> pVariable;
+  if( findTypeInScope(m_pLexer->GetIdentifier()) ) {
+    pDeclaration= parseVariableDeclaration();
+    if( !pDeclaration ) {
+      cerr << "Could not parse variable declaration in for-range index\n";
+      return NULL;
+    }
+    if( pDeclaration->HasInitializer() ) {
+      cerr << "Parsed a variable declaration, but expected no initializer, while parsing for-range index.\n";
+      return NULL;
+    }
+
+    pVariable.reset( new VariableAST(pDeclaration) );
+  } else {
+    pVariable= parseVariable();
+    if( !pVariable ) {
+      cerr << "Could not parse variable in for-range index\n";
+      return NULL;
+    }
+  }
+  
+  // Parse the begin and end of the range
+  shared_ptr<ExprAST> pBegin= parseExpression();
+  if( !pBegin ) {
+    cerr << "Could not parse begin expression in for-range statement\n";
+    return NULL;
+  } // end if no begin
+  
+  // Eat the colon
+  if( m_pLexer->GetCurrentToken() != TOKEN_COLON ) {
+     cerr << "Expected ':' after for range begin expression\n";
+     return NULL;
+  } // end if no colon
+  m_pLexer->GetNextToken();
+
+  // Parse the end of the range
+  shared_ptr<ExprAST> pEnd= parseExpression();
+  if( !pEnd ) {
+    cerr << "Could not parse end expression in for-range statement\n";
+    return NULL;
+  } // end if no end
+
+  // Parse the paren
+  if( m_pLexer->GetCurrentToken() != TOKEN_RPAREN ) {
+    cerr << "Expected ')' at end of for-range statement\n";
+    return NULL;
+  }
+  m_pLexer->GetNextToken();
+  
+  // Parse the body statement in its own scope
+	shared_ptr<StmtAST> pBody;
+	{
+		ScopeSentry s_scopeInner( this );
+		pBody= parseStatement();
+	}
+	if( !pBody ) {
+		cerr << "Could not parse body in for-range statement\n";
+		return NULL;
+	} // end if error
+  
+  // Implicitly cast begin and end to the same type as the declaration/variable
+  shared_ptr<const TypeAST> pType= pDeclaration
+    ? pDeclaration->GetType()
+    : pVariable->GetType();
+
+  if( !IsImplicitCastAllowed(pBegin, pType) ) {
+    cerr << "Could not implicitly cast from begin expression to loop variable type in for-range statement\n";
+    return NULL;
+  } else {
+    pBegin= castIfNecessary( pBegin, pType );
+  }
+
+  if( !IsImplicitCastAllowed(pEnd, pType) ) {
+    cerr << "Could not implicitly cast from end expression to loop variable type in for-range statement\n";
+    return NULL;
+  } else {
+    pEnd= castIfNecessary( pEnd, pType );
+  }
+  
+  // We expect to have a variable here.
+  if( !pVariable ) {
+    cerr << "Internal error: Expected a variable to begin for-range statement\n";
+    return NULL;
+  }
+
+  // Create the expression
+  if( pDeclaration ) {
+    return std::make_shared<ForRangeAST>( pDeclaration, pVariable, pBegin, pEnd, pBody );
+  } else {
+    return std::make_shared<ForRangeAST>( pVariable, pBegin, pEnd, pBody );
+  }
+} // end Parser::parseForRangeStatement()
 
 //! Parses a while statement
 shared_ptr<WhileAST> Parser::parseWhileStatement() {

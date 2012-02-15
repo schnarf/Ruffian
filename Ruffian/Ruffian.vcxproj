@@ -135,6 +135,7 @@
     <None Include="..\README" />
     <None Include="..\Spec\Arrays.txt" />
     <None Include="..\Spec\Casts.txt" />
+    <None Include="..\Spec\Loops.txt" />
     <None Include="..\TODO" />
     <None Include="test.txt" />
     <None Include="TestMultipleBinop.txt" />

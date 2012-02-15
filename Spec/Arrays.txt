@@ -60,3 +60,6 @@ Getting an array's size
 The arraysize() operator gives the size of a static or dynamic array. If it's a
 static array, it's a compile-time constant, otherwise it is not. Using arraysize()
 on an unsized array is a compilation error.
+
+TODO: Pass array size to functions? Can we do this?
+def mergesort( int[n] a ) {}
