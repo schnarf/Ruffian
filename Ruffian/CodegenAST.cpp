@@ -131,6 +131,81 @@ Value* ArrayRefAST::CodegenAddress( CodegenContext& context, CodegenScope& scope
 	return context.GetBuilder().CreateGEP( pBaseAddr, pIndex, "array_elem_addr" );
 } // end ArrayRefAST::CodegenAddress()
 
+namespace {
+  // Generates code for a binary operation other than assignment, where
+  // \a pLeft and \a pRight have already been cast to the same type
+  Value* codegenBinop( CodegenContext& context, Token binop, Value* pLeft, Value* pRight, const TypeAST* pType ) {
+    const bool bFloatingPoint= pType->ToBuiltin()->IsFloatingPoint(),
+               bIntegral= pType->ToBuiltin()->IsIntegral(),
+               bSigned= pType->ToBuiltin()->IsSigned();
+	  switch( binop ) {
+	  case TOKEN_PLUS: return bIntegral
+						   ? context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" )
+						   : context.GetBuilder().CreateFAdd( pLeft, pRight, "addtmp" );
+	  case TOKEN_MINUS: return bIntegral
+						    ? context.GetBuilder().CreateSub( pLeft, pRight, "subtmp" )
+						    : context.GetBuilder().CreateFSub( pLeft, pRight, "subtmp" );
+	  case TOKEN_STAR: return bIntegral
+						   ? context.GetBuilder().CreateMul( pLeft, pRight, "multmp" )
+						   : context.GetBuilder().CreateFMul( pLeft, pRight, "multmp" );
+	  case TOKEN_SLASH: 
+		  if( bIntegral && bSigned )
+			  return context.GetBuilder().CreateSDiv( pLeft, pRight, "divtmp" );
+		  else if( bIntegral && !bSigned )
+			  return context.GetBuilder().CreateUDiv( pLeft, pRight, "divtmp" );
+		  else if( bFloatingPoint )
+			  return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
+	
+    // For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
+	  case TOKEN_EQ:
+		  return bIntegral
+			  ? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
+			  : context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
+	  case TOKEN_NEQ:
+		  return bIntegral
+			  ? context.GetBuilder().CreateICmpNE( pLeft, pRight, "cmptmp" )
+			  : context.GetBuilder().CreateFCmpUNE( pLeft, pRight, "cmptmp" );
+	  case TOKEN_LT:
+		  return bIntegral
+        ? bSigned
+          ? context.GetBuilder().CreateICmpSLT( pLeft, pRight, "cmptmp" )
+          : context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
+			  : context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
+	  case TOKEN_GT:
+		  return bIntegral
+			  ? bSigned
+          ? context.GetBuilder().CreateICmpSGT( pLeft, pRight, "cmptmp" )
+          : context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
+			  : context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
+	  case TOKEN_LE:
+		  return bIntegral
+			  ? bSigned
+          ? context.GetBuilder().CreateICmpSLE( pLeft, pRight, "cmptmp" )
+          : context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
+			  : context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
+	  case TOKEN_GE:
+		  return bIntegral
+			  ? bSigned
+          ? context.GetBuilder().CreateICmpSGE( pLeft, pRight, "cmptmp" )
+          : context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
+			  : context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
+	  default:
+		  return ErrorCodegen( string("Unhandled binary operator '") + Lexer::StringifyToken(binop) + "' for binary expression" );
+	  } // end switch binop
+  }
+
+  //! Generates code to assign \a pValue to \a pLValue
+  void codegenAssign( CodegenContext& context, CodegenScope& scope, const LValueAST* pLValue, Value* pValue ) {
+    // Lookup the LHS
+		Value* pTargetAddr= pLValue->CodegenAddress( context, scope );
+
+		// Codegen the RHS
+		if( !pValue ) return (void)ErrorCodegen( "Couldn't generate code for rhs in assignment expression" );
+
+		// Create the store instruction
+		context.GetBuilder().CreateStore( pValue, pTargetAddr );
+  }
+}
 
 Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	// Special-case assignments
@@ -139,15 +214,12 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		const LValueAST* pLValue= m_pLeft->ToLValue();
 		if( !pLValue ) return ErrorCodegen( "Left-hand side of assignment expression must be a variable" );
 
-		// Lookup the lhsn
-		Value* pTargetAddr= pLValue->CodegenAddress( context, scope );
-
 		// Codegen the RHS
 		Value* pValue= m_pRight->Codegen( context, scope );
 		if( !pValue ) return ErrorCodegen( "Couldn't generate code for rhs in assignment expression" );
 
 		// Create the store instruction
-		context.GetBuilder().CreateStore( pValue, pTargetAddr );
+		codegenAssign( context, scope, pLValue, pValue );
 
 		// We return the variable as our value
 		return m_pLeft->Codegen( context, scope );
@@ -180,63 +252,7 @@ Value* BinopAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
     return ErrorCodegen( "Lhs and rhs are not both integral types" );
   if( m_pLeft->GetType()->ToBuiltin()->IsSigned() != m_pRight->GetType()->ToBuiltin()->IsSigned() )
     return ErrorCodegen( "Lhs and rhs do not have the same signedness" );
-	const bool bFloatingPoint= m_pLeft->GetType()->ToBuiltin()->IsFloatingPoint(),
-             bIntegral= m_pLeft->GetType()->ToBuiltin()->IsIntegral(),
-             bSigned= m_pLeft->GetType()->ToBuiltin()->IsSigned();
-	switch( m_binop ) {
-	case TOKEN_PLUS: return bIntegral
-						 ? context.GetBuilder().CreateAdd( pLeft, pRight, "addtmp" )
-						 : context.GetBuilder().CreateFAdd( pLeft, pRight, "addtmp" );
-	case TOKEN_MINUS: return bIntegral
-						  ? context.GetBuilder().CreateSub( pLeft, pRight, "subtmp" )
-						  : context.GetBuilder().CreateFSub( pLeft, pRight, "subtmp" );
-	case TOKEN_STAR: return bIntegral
-						 ? context.GetBuilder().CreateMul( pLeft, pRight, "multmp" )
-						 : context.GetBuilder().CreateFMul( pLeft, pRight, "multmp" );
-	case TOKEN_SLASH: 
-		if( bIntegral && bSigned )
-			return context.GetBuilder().CreateSDiv( pLeft, pRight, "divtmp" );
-		else if( bIntegral && !bSigned )
-			return context.GetBuilder().CreateUDiv( pLeft, pRight, "divtmp" );
-		else if( bFloatingPoint )
-			return context.GetBuilder().CreateFDiv( pLeft, pRight, "divtmp" );
-	
-  // For comparisons, convert bool 0/1 to double 0.0 or 1.0 for now
-	case TOKEN_EQ:
-		return bIntegral
-			? context.GetBuilder().CreateICmpEQ( pLeft, pRight, "cmptmp" )
-			: context.GetBuilder().CreateFCmpUEQ( pLeft, pRight, "cmptmp" );
-	case TOKEN_NEQ:
-		return bIntegral
-			? context.GetBuilder().CreateICmpNE( pLeft, pRight, "cmptmp" )
-			: context.GetBuilder().CreateFCmpUNE( pLeft, pRight, "cmptmp" );
-	case TOKEN_LT:
-		return bIntegral
-      ? bSigned
-        ? context.GetBuilder().CreateICmpSLT( pLeft, pRight, "cmptmp" )
-        : context.GetBuilder().CreateICmpULT( pLeft, pRight, "cmptmp" )
-			: context.GetBuilder().CreateFCmpULT( pLeft, pRight, "cmptmp" );
-	case TOKEN_GT:
-		return bIntegral
-			? bSigned
-        ? context.GetBuilder().CreateICmpSGT( pLeft, pRight, "cmptmp" )
-        : context.GetBuilder().CreateICmpUGT( pLeft, pRight, "cmptmp" )
-			: context.GetBuilder().CreateFCmpUGT( pLeft, pRight, "cmptmp" );
-	case TOKEN_LE:
-		return bIntegral
-			? bSigned
-        ? context.GetBuilder().CreateICmpSLE( pLeft, pRight, "cmptmp" )
-        : context.GetBuilder().CreateICmpULE( pLeft, pRight, "cmptmp" )
-			: context.GetBuilder().CreateFCmpULE( pLeft, pRight, "cmptmp" );
-	case TOKEN_GE:
-		return bIntegral
-			? bSigned
-        ? context.GetBuilder().CreateICmpSGE( pLeft, pRight, "cmptmp" )
-        : context.GetBuilder().CreateICmpUGE( pLeft, pRight, "cmptmp" )
-			: context.GetBuilder().CreateFCmpUGE( pLeft, pRight, "cmptmp" );
-	default:
-		return ErrorCodegen( string("Unhandled binary operator '") + Lexer::StringifyToken(m_binop) + "' for binary expression" );
-	} // end switch binop
+	return codegenBinop( context, m_binop, pLeft, pRight, m_pLeft->GetType().get() );
 } // end BinopAST::Codegen()
 
 
@@ -697,12 +713,18 @@ void ForRangeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 	// Enter a new scope
 	CodegenScope::ScopeEnterSentry s_scope( context, scope );
 
+  // Evaluate the begin and end expressions once
+  const TypeAST* const pType= m_pVariable->GetType().get();
+  ASSERT( *m_pBegin->GetType() == *pType );
+  Value* pBegin= m_pBegin->Codegen( context, scope );
+  ASSERT( *m_pEnd->GetType() == *pType );
+  Value* pEnd= m_pEnd->Codegen( context, scope );
+
   // Emit the declaration if there is one
   if( m_pDeclaration ) m_pDeclaration->Codegen( context, scope );
 
 	// Emit the initializer expression
-  BinopAST initializer( TOKEN_ASSIGN, m_pVariable, m_pBegin );
-	initializer.Codegen( context, scope );
+  codegenAssign( context, scope, m_pVariable->ToLValue(), pBegin );
 
 	// Make the new basic block for the loop header, inserting after current block
 	Function* pFunction= context.GetBuilder().GetInsertBlock()->getParent();
@@ -726,8 +748,7 @@ void ForRangeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 	if( !pUpdateValue ) return (void)ErrorCodegen( "Could not generate code in for loop update expression" );
 
   // Compute the end condition
-  BinopAST endCondition( TOKEN_LT, m_pVariable, m_pEnd );
-  Value* pCondition= endCondition.Codegen( context, scope );
+  Value* pCondition= codegenBinop( context, TOKEN_LT, m_pVariable->Codegen(context, scope), pEnd, pType );
 	if( !pCondition ) return (void)ErrorCodegen( "Could not generate code in for loop condition expression" );
 
 	// Create the end loop block and add the conditional branch to it
