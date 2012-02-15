@@ -10,9 +10,11 @@ def main(int n) -> int {
 		printInt(i);
 	}
 
-	foreach( int i; 0:4 ) {
+	int i;
+	foreach( i; 0 : 4 ) {
 		printInt(i);
 	}
+	printInt(i);
 
 	return 0;
 }

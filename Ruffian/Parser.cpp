@@ -1196,6 +1196,13 @@ shared_ptr<ForRangeAST> Parser::parseForRangeStatement() {
       cerr << "Could not parse variable in for-range index\n";
       return NULL;
     }
+
+    // Eat the semicolon
+    if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
+      cerr << "Expected ';' after variable in for-range index\n";
+      return NULL;
+    }
+    m_pLexer->GetNextToken();
   }
   
   // Parse the begin and end of the range
