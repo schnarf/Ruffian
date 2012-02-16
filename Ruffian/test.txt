@@ -5,17 +5,35 @@ def printDouble(double f);
 def printNewline();
 def rand() -> int;
 
-def main(int n) -> int {
-	for( int i=0; i<4; ++i ) {
-		printInt(i);
+def build_random_array(int n, int[] a) {
+	foreach (int i; 0:n) {
+		a[i]= rand();
 	}
+}
 
-	int b= 4;
-	foreach( int i; 0 : b ) {
-		printInt(i);
-		b= b * 2;
+def print_array(int n, int[] a) {
+	foreach (int i; 0:n) {
+		printInt( a[i] );
 	}
-	printInt(b);
+}
+
+def insertion_sort(int n, int[] a ) {
+	foreach (int i; 1:n) {
+		int key= a[i];
+		int j= i - 1;
+		while( j >= 0 & a[j] > key ) {
+			a[j+1]= a[j];
+			j= j - 1;
+		}
+		a[j+1]= key;
+	}
+}
+
+def main(int n) -> int {
+	int[n] a;
+	build_random_array(n, a);
+	insertion_sort(n, a);
+	print_array(n, a);
 
 	return 0;
 }

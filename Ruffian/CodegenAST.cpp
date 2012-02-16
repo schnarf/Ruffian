@@ -762,11 +762,14 @@ void ForRangeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 
 void WhileAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 	/* Output this as:
-		goto loop
 		loop:
-			body
-			endcond = condexpr
-			br encdond loop, endloop
+    endcond = condexpr
+    br endcond endloop, loopcont
+
+    loopcont:
+	  body
+    goto loop
+
 		endloop:
 	*/
 
@@ -775,13 +778,29 @@ void WhileAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 
 	// Make the new basic block for the loop header, inserting after current block
 	Function* pFunction= context.GetBuilder().GetInsertBlock()->getParent();
-	BasicBlock* pLoopBlock= BasicBlock::Create( getGlobalContext(), "loop", pFunction );
+	BasicBlock* pLoopBlock= BasicBlock::Create( getGlobalContext(), "while", pFunction );
 
-	// Create an explicit fallthrough from the current block to the loop block
-	context.GetBuilder().CreateBr( pLoopBlock );
+  // Create an explicit fallthrough from the current block to the loop block
+  context.GetBuilder().CreateBr( pLoopBlock );
 
-	// Start insertion in the loop block
-	context.GetBuilder().SetInsertPoint( pLoopBlock );
+  // Compute the end condition
+  context.GetBuilder().SetInsertPoint( pLoopBlock );
+	Value* pCondition= m_pCondition->Codegen( context, scope );
+	if( !pCondition ) return (void)ErrorCodegen( "Could not generate code in while loop condition expression" );
+
+  // Create the end loop block
+	BasicBlock* pLoopEndBlock= BasicBlock::Create( getGlobalContext(), "end_while", pFunction );
+
+  // Create the loopcont block, where the body is inserted
+  BasicBlock* pLoopContBlock= BasicBlock::Create( getGlobalContext(), "while_body", pFunction );
+
+  // Add the conditional branch after the end condition computation.
+  // This is at the end of the loop block.
+  context.GetBuilder().SetInsertPoint( pLoopBlock );
+	context.GetBuilder().CreateCondBr( pCondition, pLoopContBlock, pLoopEndBlock );
+
+	// Start insertion in the loopcont block
+	context.GetBuilder().SetInsertPoint( pLoopContBlock );
 	
 	// Emit the body statement followed by the update expression, in its own scope
 	{
@@ -789,13 +808,8 @@ void WhileAST::Codegen( CodegenContext& context, CodegenScope& scope ) const {
 		m_pBody->Codegen( context, scope );
 	}
 
-	// Compute the end condition
-	Value* pCondition= m_pCondition->Codegen( context, scope );
-	if( !pCondition ) return (void)ErrorCodegen( "Could not generate code in while loop condition expression" );
-
-	// Create the end loop block and add the conditional branch to it
-	BasicBlock* pLoopEndBlock= BasicBlock::Create( getGlobalContext(), "endloop", pFunction );
-	context.GetBuilder().CreateCondBr( pCondition, pLoopBlock, pLoopEndBlock );
+	// Create a jump back to the beginning of the loop, to evaluate the condition
+	context.GetBuilder().CreateBr( pLoopBlock );
 
 	// Set the insert point for any additional code to the loop end block
 	context.GetBuilder().SetInsertPoint( pLoopEndBlock );
