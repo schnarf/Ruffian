@@ -40,16 +40,28 @@ int main( int argc, char* argv[] ) {
 
 	llvm::InitializeNativeTarget();
 
-	// We expect one argument: a filename
-	if( argc != 2 ) {
-		cerr << "Usage: " << argv[0] << " filename\n";
+	// We expect one or two arguments
+	if( argc != 2 && argc != 3) {
+		cerr << "Usage: " << argv[0] << "[-v] filename\n";
 		return 1;
 	}
 
+  // If we got two arguments, parse the first as a flag
+  bool bVerbose= false;
+  if( argc == 3 ) {
+    const char* const strFlag= argv[1];
+    if( strcmp(strFlag, "-v") == 0 ) {
+      bVerbose= true;
+    } else {
+      cerr << "Unknown option " << strFlag;
+    }
+  }
+
 	// Try to open the file
-	shared_ptr<FILE> pFile( fopen(argv[1], "r"), fclose );
+  const char* const pFilename= argc == 2 ? argv[1] : argv[2];
+	shared_ptr<FILE> pFile( fopen(pFilename, "r"), fclose );
 	if( !pFile.get() ) {
-		cerr << "Could not open " << argv[1] << " for reading\n";
+		cerr << "Could not open " << pFilename << " for reading\n";
 		return 1;
 	}
 
@@ -61,7 +73,7 @@ int main( int argc, char* argv[] ) {
 	ModuleAST* pModule= pParser->Run();
 	if( !pModule ) return 1;
 
-	cout << "Parsed the module successfully.\n";
+	if( bVerbose ) cout << "Parsed the module successfully.\n";
 
 	// Create a codegen and generate code for the module
 	unique_ptr<Codegen> pCodegen( new Codegen );
@@ -125,7 +137,7 @@ int main( int argc, char* argv[] ) {
 	bool bCodegenSuccess= pCodegen->Run( pModule );
 	if( !bCodegenSuccess ) return 1;
 
-	cout << "Ran codegen successfully.\n";
+	if( bVerbose ) cout << "Ran codegen successfully.\n";
 
 	// Look up the main() function
 	llvm::Function* pMainFunction= pCodegen->GetContext()->GetModule()->getFunction( "main" );
@@ -149,7 +161,8 @@ int main( int argc, char* argv[] ) {
 	// JIT the function, returning a function pointer
 	int32 (*mainFunc)(int32)= (int32(*)(int32))pCodegen->GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
 	pCodegen->GetContext()->GetModule()->dump();
-	cout << "main() returned " << mainFunc(23) << endl;
+  int mainRet= mainFunc(23);
+	if( bVerbose ) cout << "main() returned " << mainRet << endl;
 
-	return 0;
+	return mainRet;
 }

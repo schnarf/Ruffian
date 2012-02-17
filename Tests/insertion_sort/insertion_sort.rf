@@ -1,0 +1,43 @@
+// Prototypes for standard library functions
+def printInt(int n);
+def printFloat(float f);
+def printDouble(double f);
+def printNewline();
+def rand() -> int;
+
+def print_array(int n, int[] a) {
+	foreach (int i; 0:n) {
+		printInt( a[i] );
+	}
+}
+
+def insertion_sort(int n, int[] a ) {
+	foreach (int i; 1:n) {
+		int key= a[i];
+		int j= i - 1;
+		while( j >= 0 & a[j] > key ) {
+			a[j+1]= a[j];
+			j= j - 1;
+		}
+		a[j+1]= key;
+	}
+}
+
+def main(int n) -> int {
+	// Build the array
+	int[7] a;
+	a[0]= -89;
+	a[1]= 27;
+	a[2]= -59;
+	a[3]= -56;
+	a[4]= 15;
+	a[5]= -42;
+	a[6]= -24;
+
+	print_array(arraysize(a), a);
+	printNewline();
+	insertion_sort(arraysize(a), a);
+	print_array(arraysize(a), a);
+
+	return 0;
+}

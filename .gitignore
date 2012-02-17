@@ -18,3 +18,5 @@
 *.pch
 *_manifest.rc
 *.ipch
+*.unsuccessfulbuild
+*.pyc
