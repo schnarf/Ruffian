@@ -748,7 +748,12 @@ shared_ptr<DeclarationAST> Parser::parseVariableDeclaration() {
 
 	// Add the variable to the current scope and then return the declaration
 	shared_ptr<DeclarationAST> pDeclaration( new DeclarationAST(strName, pType, pInitializer) );
-	addVariableToScope( pDeclaration );
+	bool bSuccess= addVariableToScope( pDeclaration );
+
+  // If we didn't succeed, that means the variable was already in scope.
+  // Don't output an error message since addVariableToScope() does.
+  if( !bSuccess ) return NULL;
+
 	return pDeclaration;
 } // end Parser::parseVariableDeclaration()
 
