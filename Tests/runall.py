@@ -7,7 +7,7 @@ def main(argv):
         return 1
 
     ruffian_path = argv[1]
-    tests = ['insertion_sort']
+    tests = ['insertion_sort', 'for_range_simple']
 
     success = True
     for test in tests:

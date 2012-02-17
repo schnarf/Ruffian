@@ -1,0 +1,33 @@
+// Prototypes for standard library functions
+def printInt(int n);
+def printFloat(float f);
+def printDouble(double f);
+def printNewline();
+def rand() -> int;
+
+def print_array(int n, int[] a) {
+	// Don't use foreach here.
+	for (int i=0; i<n; ++i) {
+		printInt( a[i] );
+	}
+}
+
+def main(int n) -> int {
+	int[5] a;
+	// Assign the array to 0, 1, 2, 3, 4
+	foreach (int i; 0:5) { a[i] = i; }
+	print_array( 5, a );
+	printNewline();
+
+	int[4] b;
+	// Assign the array to 100, 101, 102, 103
+	int j= 1;		// Set j to 1. Make sure it gets initialized to 0 in the loop.
+	foreach (j; 0:4) { b[j] = 100 + j; }
+	print_array( 4, b );
+	printNewline();
+
+	// We expect j = 4
+	printInt( j );
+
+	return 0;
+}
