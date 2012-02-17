@@ -1144,11 +1144,11 @@ namespace {
 shared_ptr<ForRangeAST> Parser::parseForRangeStatement() {
   /*
 	for_range_statement
-		::= 'foreach' '(' for_range_index ';' expression ':' expression ')' statement
+		::= 'foreach' '(' for_range_index expression ':' expression ')' statement
 
   for_range_index
-    ::= type identifier
-    ::= identifier
+    ::= primary_statement
+    Where if primary statment is a variable declaration, it can't have an initializer.
 	*/
 
   // Start a new scope for any variable that might be declared in the initializer statement
@@ -1168,42 +1168,48 @@ shared_ptr<ForRangeAST> Parser::parseForRangeStatement() {
   }
   m_pLexer->GetNextToken();
 
-  // Parse the index. We expect an identifier, which is either a type or a variable
-  if( m_pLexer->GetCurrentToken() != TOKEN_IDENTIFIER ) {
-    cerr << "Expected identifier while parsing for-range index\n";
+  // Parse the index. We expect a primary statement that's either a variable declaration
+  // without an initializer, or a variable.
+  shared_ptr<PrimaryStmtAST> pPrimaryStmt= parsePrimaryStatement();
+  if( !pPrimaryStmt ) {
+    cerr << "Expected a primary-statement in for-range statement\n";
     return NULL;
   }
 
-  // Check if the identifier is a type or not. If it's a type, parse it as a variable
-  // declaration, otherwise parse it as a variable
-  shared_ptr<DeclarationAST> pDeclaration;
+  // Figure out what kind of primary statement we got, and make sure it's right.
+  // First see if it's a declaration, then otherwise fall back on a variable
+  shared_ptr<DeclarationAST> pDeclaration= dynamic_pointer_cast<DeclarationAST>(pPrimaryStmt);
   shared_ptr<VariableAST> pVariable;
-  if( findTypeInScope(m_pLexer->GetIdentifier()) ) {
-    pDeclaration= parseVariableDeclaration();
-    if( !pDeclaration ) {
-      cerr << "Could not parse variable declaration in for-range index\n";
-      return NULL;
-    }
+  if( pDeclaration ) {
+    // Make sure there's no initializer
     if( pDeclaration->HasInitializer() ) {
-      cerr << "Parsed a variable declaration, but expected no initializer, while parsing for-range index.\n";
+      cerr << "For-range variable declaration cannot have an initializer\n";
       return NULL;
     }
 
+    // Store the variable
     pVariable.reset( new VariableAST(pDeclaration) );
   } else {
-    pVariable= parseVariable();
-    if( !pVariable ) {
-      cerr << "Could not parse variable in for-range index\n";
+    // This should be an ExprStmt wrapping a variable.
+    shared_ptr<ExprStmtAST> pExprStmt= dynamic_pointer_cast<ExprStmtAST>( pPrimaryStmt );
+    if( !pExprStmt ) {
+      cerr << "Unexpected! For-range variable declaration should be an expr stmt wrapping a variable\n";
       return NULL;
     }
 
-    // Eat the semicolon
-    if( m_pLexer->GetCurrentToken() != TOKEN_SEMICOLON ) {
-      cerr << "Expected ';' after variable in for-range index\n";
+    // The expression should be a variable
+    shared_ptr<ExprAST> pExpr= pExprStmt->GetExpr();
+    pVariable= dynamic_pointer_cast<VariableAST>(pExpr);
+    if( !pVariable ) {
+      cerr << "Unexpected! For-range variable declaration was neither a declaration or variable\n";
+      cerr << typeid(*pPrimaryStmt.get()).name() << "\n";
+      ASSERT( false );
       return NULL;
     }
-    m_pLexer->GetNextToken();
   }
+  
+  // If we got here, we must have a variable at the very least
+  ASSERT( pVariable );
   
   // Parse the begin and end of the range
   shared_ptr<ExprAST> pBegin= parseExpression();

@@ -144,6 +144,7 @@ public:
 	ExprStmtAST( const shared_ptr<ExprAST>& pExpr ) : m_pExpr(pExpr) {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
+  shared_ptr<ExprAST> GetExpr() { return m_pExpr; }
 private:
 	shared_ptr<ExprAST> m_pExpr;
 }; // end class ExprStmtAST
