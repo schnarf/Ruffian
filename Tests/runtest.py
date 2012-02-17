@@ -7,7 +7,8 @@ def runRuffian(ruffian_path, test_filename):
     process = subprocess.Popen([ruffian_path, test_filename],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
-    return process.communicate()
+    (stdout, stderr) = process.communicate()
+    return (stdout, stderr, process.returncode)
 
 def runTest(ruffian_path, test_name):
     """
@@ -19,7 +20,18 @@ def runTest(ruffian_path, test_name):
     gold_filename = '%s/gold.txt' % test_name
 
     # Run the test and grab the output
-    (results, stderr) = runRuffian(ruffian_path, test_filename)
+    (results, stderr, returncode) = runRuffian(ruffian_path, test_filename)
+
+    # Format the results: The first line of the results file is whether
+    # compilation succeeded or not. The rest is stdout.
+    if returncode == 0:
+        returncode_str = 'Success'
+    elif returncode == 1:
+        returncode_str = 'Failure'
+    else:
+        assert(False)
+        returncode_str = 'Unknown return code'
+    results = '%s\n%s' % (returncode_str, results)
 
     # Check for the gold file. If it does not exist, write the results
     # to it and succeed. If it does exist, compare the results and fail

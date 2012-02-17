@@ -1,0 +1,14 @@
+// Prototypes for standard library functions
+def printInt(int n);
+def printFloat(float f);
+def printDouble(double f);
+def printNewline();
+def rand() -> int;
+
+def main(int n) -> int {
+	// Erroneously re-declare i. This should break.
+	int i;
+	foreach(int i; 0:5) { printInt(i); }
+
+	return 0;
+}
