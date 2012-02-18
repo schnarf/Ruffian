@@ -66,8 +66,9 @@ struct SourceLocation {
 
 class Lexer {
 public:
-	//! Initialize with a file
-	Lexer( const shared_ptr<FILE>& pFile );
+	//! Initialize with a filename
+  //! Throws runtime_error if the file can't be opened
+	Lexer( const string& strFilename );
 	//! Non-inline destructor
 	~Lexer();
 
@@ -92,9 +93,12 @@ public:
 	//! Returns whether the current token is a postfix unary operator
 	static bool IsPostUnaryOpToken( Token token );
 
+  //! Returns our filename
+  const string& GetFilename() const { return m_strFilename; }
   //! Returns our current location in the source code
   SourceLocation GetSourceLocation() const { return m_loc; }
 private:
+  const string m_strFilename; //!< Our filename
   shared_ptr<FILE> m_pFile;   //!< Our file to read from
   SourceLocation m_loc;       //!< Current source location
 

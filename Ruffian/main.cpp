@@ -62,26 +62,28 @@ int main( int argc, char* argv[] ) {
   // Grab the include path
   const char* const pIncludePath= argc == 3 ? argv[1] : argv[2];
 
-  // Try to open the standard library
+  // Grab the library and source filenames
   string strLibFilename= string(pIncludePath) + string("/stdlib.rf");
-  shared_ptr<FILE> pLibFile( fopen(strLibFilename.c_str(), "r"), fclose );
-  if( !pLibFile.get() ) {
-    cerr << "Could not open " << strLibFilename << " for reading\n";
+  string strSourceFilename= argc == 3 ? argv[2] : argv[3];
+
+  // Try to create lexers for both these files. If they throw, there
+  // was an error opening the file.
+  unique_ptr<Lexer> pLibLexer, pSourceLexer;
+  try {
+    pLibLexer.reset( new Lexer(strLibFilename) );
+  } catch( const std::runtime_error& ) {
+    cerr << "Error opening " << strLibFilename << " for reading\n";
+    return 1;
+  }
+  try {
+    pSourceLexer.reset( new Lexer(strSourceFilename) );
+  } catch( const std::runtime_error& ) {
+    cerr << "Error opening " << strSourceFilename << " for reading\n";
     return 1;
   }
 
-	// Try to open the file
-  const char* const pFilename= argc == 3 ? argv[2] : argv[3];
-	shared_ptr<FILE> pFile( fopen(pFilename, "r"), fclose );
-	if( !pFile.get() ) {
-		cerr << "Could not open " << pFilename << " for reading\n";
-		return 1;
-	}
-
   // Create our parser. We'll feed the library file and then the source file to it.
   Parser parser;
-  unique_ptr<Lexer> pLibLexer( new Lexer(pLibFile) );
-  unique_ptr<Lexer> pSourceLexer( new Lexer(pFile) );
   if( !parser.Run(pLibLexer.get()) ) {
     cerr << "Failed to parse the library\n";
     return 1;

@@ -2,12 +2,17 @@
 #include "Lexer.h"
 #include <cstdlib>
 
-//! Initialize with a file
-Lexer::Lexer( const shared_ptr<FILE>& pFile ) :
-	m_pFile(pFile),
+//! Initialize with a filename
+//! Throws runtime_error if the file can't be opened
+Lexer::Lexer( const string& strFilename ) :
+  m_strFilename(strFilename),
+	m_pFile(fopen(m_strFilename.c_str(), "r"), fclose),
 	m_lastChar(' '),
 	m_currentToken(TOKEN_UNKNOWN),
 	m_strIdentifier("") {
+
+  // Throw an exception if we couldn't open the file
+  if( !m_pFile ) throw std::runtime_error( "Couldn't open the file" );
 
 	// Prime the pump
 	GetNextToken();
