@@ -2,15 +2,15 @@ import os.path
 import subprocess
 import sys
 
-def runRuffian(ruffian_path, test_filename):
+def runRuffian(include_path, ruffian_path, test_filename):
     """ Compiles and runs the test file. Returns (stdout, stderr) """
-    process = subprocess.Popen([ruffian_path, test_filename],
+    process = subprocess.Popen([ruffian_path, include_path, test_filename],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     (stdout, stderr) = process.communicate()
     return (stdout, stderr, process.returncode)
 
-def runTest(ruffian_path, test_name):
+def runTest(include_path, ruffian_path, test_name):
     """
     Runs the test and compares against the gold results. Returns a
     triplet of success (true/false), the actual results, and the gold results
@@ -20,7 +20,9 @@ def runTest(ruffian_path, test_name):
     gold_filename = '%s/gold.txt' % test_name
 
     # Run the test and grab the output
-    (results, stderr, returncode) = runRuffian(ruffian_path, test_filename)
+    (results, stderr, returncode) = runRuffian(include_path,
+                                               ruffian_path,
+                                               test_filename)
 
     # Format the results: The first line of the results file is whether
     # compilation succeeded or not. The rest is stdout.
@@ -51,12 +53,12 @@ def runTest(ruffian_path, test_name):
         f.close()
         return (True, results, results)
 
-def runAndPrint(ruffian_path, test_name):
+def runAndPrint(include_path, ruffian_path, test_name):
     """
     Runs the specified tests. Prints out a message on success or failure.
     Returns True for success and False for failure.
     """
-    (success, results, gold) = runTest(ruffian_path, test_name)
+    (success, results, gold) = runTest(include_path, ruffian_path, test_name)
 
     if success:
         print 'Test succeeded.'
@@ -71,14 +73,15 @@ def runAndPrint(ruffian_path, test_name):
     return success
 
 def main(argv):
-    if len(argv) != 3:
-        sys.stderr.write('Usage: %s [ruffian path] [name of test]\n' % argv[0])
+    if len(argv) != 4:
+        sys.stderr.write('Usage: %s [include path] [ruffian path] [name of test]\n' % argv[0])
         return 1
 
-    ruffian_path = argv[1]
-    test_name = argv[2]
+    include_path = argv[1]
+    ruffian_path = argv[2]
+    test_name = argv[3]
 
-    success = runAndPrint(ruffian_path, test_name)
+    success = runAndPrint(include_path, ruffian_path, test_name)
     if success: return 0
     else: return 1
 

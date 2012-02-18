@@ -62,8 +62,8 @@ enum Token {
 
 class Lexer {
 public:
-	//! Initialize with a file
-	Lexer( const shared_ptr<FILE>& pFile );
+	//! Initialize with a buffer
+	Lexer( vector<char>&& buf );
 	//! Non-inline destructor
 	~Lexer();
 
@@ -88,7 +88,8 @@ public:
 	//! Returns whether the current token is a postfix unary operator
 	static bool IsPostUnaryOpToken( Token token );
 private:
-	shared_ptr<FILE> m_pFile;		//!< Our file to read from
+  const vector<char> m_buf;               //!< Our entire file, read into memory
+  vector<char>::const_iterator m_itBuf;   //!< Iterator in our buffer
 
 	char m_lastChar;					  //!< Our last read character
 	Token m_currentToken;				//!< Our current token

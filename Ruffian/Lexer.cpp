@@ -2,9 +2,10 @@
 #include "Lexer.h"
 #include <cstdlib>
 
-//! Initialize with a file
-Lexer::Lexer( const shared_ptr<FILE>& pFile ) :
-	m_pFile(pFile),
+//! Initialize with a buffer
+Lexer::Lexer( vector<char>&& buf ) :
+	m_buf(buf),
+  m_itBuf(m_buf.begin()),
 	m_lastChar(' '),
 	m_currentToken(TOKEN_UNKNOWN),
 	m_strIdentifier("") {
@@ -287,8 +288,13 @@ Token Lexer::getTok() {
 
 //! Reads a single character from our file
 char Lexer::readChar() {
-	size_t uRead= fread( &m_lastChar, sizeof(char), 1, m_pFile.get() );
-	if( !uRead ) m_lastChar= EOF;
+	
+	if( m_itBuf == m_buf.end() ) {
+    m_lastChar= EOF;
+  } else {
+    m_lastChar= *m_itBuf;
+    ++m_itBuf;
+  }
 	return m_lastChar;
 } // end Lexer::readChar()
 
