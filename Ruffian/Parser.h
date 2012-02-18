@@ -8,17 +8,22 @@ class PrototypeAST; class ModuleAST; class ForAST; class ForRangeAST; class Prim
 
 class Parser {
 public:
-	//! Initialize with parser
-	Parser( const shared_ptr<Lexer>& pLexer );
+	//! Initialize
+	Parser();
 	//! Non-inline destructor
 	~Parser();
 
-	//! Runs the main parsing loop, returning the parsed module at the
-	//! root of the AST on success, or NULL on failure.
-	ModuleAST* Run();
+	//! Runs the main parsing loop with the given lexer
+  //! Returns TRUE on success or FALSE on failure
+	bool Run( Lexer* pLexer );
+  //! Creates a module AST node from everything we've parsed so far
+  ModuleAST* CreateModule();
 
 private:
-	shared_ptr<Lexer> m_pLexer;			//!< Our lexer
+	Lexer* m_pLexer;			//!< Our lexer
+
+  vector<shared_ptr<PrototypeAST>> m_pPrototypes;     //!< Our list of function prototypes
+	vector<shared_ptr<FunctionAST>> m_pFunctions;       //!< Our list of function definitions
 	
 	//! Parses a primary expression.
 	shared_ptr<ExprAST> parsePrimaryExpression();

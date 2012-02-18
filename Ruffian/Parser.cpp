@@ -5,9 +5,9 @@
 #include "SemBinop.h"
 #include "SemCast.h"
 
-//! Initialize with parser
-Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
-	m_pLexer(pLexer) {
+//! Initialize
+Parser::Parser() :
+	m_pLexer(NULL) {
 
 	// Initialize our scope with our built-in types
 	for( vector<shared_ptr<const TypeAST>>::const_iterator itType=BuiltinTypeAST::GetBuiltinTypes().begin(); itType!=BuiltinTypeAST::GetBuiltinTypes().end(); ++itType ) {
@@ -21,12 +21,10 @@ Parser::Parser( const shared_ptr<Lexer>& pLexer ) :
 } // end Parser::Parser()
 
 
-//! Runs the main parsing loop, returning the parsed module at the
-//! root of the AST on success, or NULL on failure.
-ModuleAST* Parser::Run() {
-	// Build a list of function prototypes and definitions encountered
-	vector<shared_ptr<PrototypeAST>> pPrototypes;
-	vector<shared_ptr<FunctionAST>> pFunctions;
+//! Runs the main parsing loop with the given lexer
+//! Returns TRUE on success or FALSE on failure
+bool Parser::Run( Lexer* pLexer ) {
+  m_pLexer= pLexer;
 
 	// Parse until we hit the end of the file or an error is encountered
 	bool bEOF= false, bError= false;
@@ -39,8 +37,8 @@ ModuleAST* Parser::Run() {
 			// Attempt to parse the declaration or definition; only one pointer will be non-NULL
 			pair<shared_ptr<PrototypeAST>, shared_ptr<FunctionAST>> functionRet= parseFunctionDeclarationOrDefinition();
 			// Add the prototype or definition to the appropriate list
-			if( functionRet.first ) pPrototypes.push_back( functionRet.first );
-			else if( functionRet.second ) pFunctions.push_back( functionRet.second );
+			if( functionRet.first ) m_pPrototypes.push_back( functionRet.first );
+			else if( functionRet.second ) m_pFunctions.push_back( functionRet.second );
 			else { 
 				cerr << "Encountered an error parsing a function declaration/definition\n";
 				bError= true;
@@ -54,13 +52,15 @@ ModuleAST* Parser::Run() {
 		} // end switch current token
 	} // end while not eof or error
 
-	// If we hit an error, just exit out here. We already printed an error message,
-	// and should not try to assemble any module.
-	if( bError ) return NULL;
-
-	// If we are here, create and return the module
-	return new ModuleAST( pPrototypes, pFunctions );
+  m_pLexer= NULL;
+	return !bError;
 } // end Parser::Run()
+
+
+//! Creates a module AST node from everything we've parsed so far
+ModuleAST* Parser::CreateModule() {
+  return new ModuleAST( m_pPrototypes, m_pFunctions );
+} // end Parser::CreateModule()
 
 
 //! Parses a primary expression.

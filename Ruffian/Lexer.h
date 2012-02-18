@@ -60,10 +60,14 @@ enum Token {
 	NUM_TOKENS
 }; // end enum Token
 
+struct SourceLocation {
+  long iLine, iCol;   // 1-indexed line and column
+}; // end struct SourceLocation
+
 class Lexer {
 public:
-	//! Initialize with a buffer
-	Lexer( vector<char>&& buf );
+	//! Initialize with a file
+	Lexer( const shared_ptr<FILE>& pFile );
 	//! Non-inline destructor
 	~Lexer();
 
@@ -87,9 +91,12 @@ public:
 	static bool IsPreUnaryOpToken( Token token );
 	//! Returns whether the current token is a postfix unary operator
 	static bool IsPostUnaryOpToken( Token token );
+
+  //! Returns our current location in the source code
+  SourceLocation GetSourceLocation() const { return m_loc; }
 private:
-  const vector<char> m_buf;               //!< Our entire file, read into memory
-  vector<char>::const_iterator m_itBuf;   //!< Iterator in our buffer
+  shared_ptr<FILE> m_pFile;   //!< Our file to read from
+  SourceLocation m_loc;       //!< Current source location
 
 	char m_lastChar;					  //!< Our last read character
 	Token m_currentToken;				//!< Our current token

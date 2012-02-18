@@ -6,8 +6,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-#include <sys/stat.h>
 #include "llvm/Support/DynamicLibrary.h"
+#include "ModuleAST.h"
 
 static void printInt( int i ) {
 	cout << i << endl;
@@ -77,75 +77,41 @@ int main( int argc, char* argv[] ) {
 		cerr << "Could not open " << pFilename << " for reading\n";
 		return 1;
 	}
-  
-  // Concatenating the library file before the file we're compiling.
-  // This is kind of a hack for now.
-  struct stat stat_ret;
-  if( stat(strLibFilename.c_str(), &stat_ret) != 0 ) {
-    cerr << "Error trying to stat " << strLibFilename << "\n";
+
+  // Create our parser. We'll feed the library file and then the source file to it.
+  Parser parser;
+  unique_ptr<Lexer> pLibLexer( new Lexer(pLibFile) );
+  unique_ptr<Lexer> pSourceLexer( new Lexer(pFile) );
+  if( !parser.Run(pLibLexer.get()) ) {
+    cerr << "Failed to parse the library\n";
     return 1;
   }
-  long uLibSize= stat_ret.st_size;
-
-  if( stat(pFilename, &stat_ret) != 0 ) {
-    cerr << "Error trying to stat " << pFilename << "\n";
+  if( !parser.Run(pSourceLexer.get()) ) {
+    cerr << "Failed to parse the source\n";
     return 1;
   }
-  long uFileSize= stat_ret.st_size;
 
-  vector<char> fileBuf;
-  try {
-    fileBuf.resize( uLibSize+uFileSize );
-  } catch( const std::bad_alloc& e ) {
-    cerr << "Out of memory trying to allocate " << uLibSize+uFileSize << " bytes for the source file\n";
-    return 1;
-  }
-  // It's ok if we don't read as many bytes as we expected. Due to newline translation,
-  // we can expect to read more bytes than we actually do.
-  size_t ret= fread( reinterpret_cast<void*>(&fileBuf[0]), 1, uLibSize, pLibFile.get() );
-  if( ret != uLibSize && !feof(pLibFile.get()) ) {
-    cerr << "Error reading library file, expected " << uLibSize << " bytes but read " << ret << "\n";
-    if( ferror(pLibFile.get()) ) perror( "Error occurred: " );
-    return 1;
-  } else { uLibSize= ret; }
-  ret= fread( reinterpret_cast<void*>(&fileBuf[uLibSize]), 1, uFileSize, pFile.get() );
-  if( ret != uFileSize && !feof(pFile.get()) ) {
-    cerr << "Error reading source file, expected " << uFileSize << " bytes but read " << ret << "\n";
-    if( ferror(pFile.get()) ) perror( "Error occurred: " );
-    return 1;
-  } else { uFileSize= ret; }
-  fileBuf.resize( uLibSize+uFileSize );
-
-  // Now we can close the files
-  pFile.reset();
-  pLibFile.reset();
-
-	// Create a lexer to read this file
-	shared_ptr<Lexer> pLexer( new Lexer(move(fileBuf)) );
-	
-	// Create a parser and run the main parsing loop
-	unique_ptr<Parser> pParser( new Parser(pLexer) );
-	ModuleAST* pModule= pParser->Run();
-	if( !pModule ) return 1;
+  // Assemble the module
+	unique_ptr<ModuleAST> pModule( parser.CreateModule() );
 
 	if( bVerbose ) cout << "Parsed the module successfully.\n";
 
 	// Create a codegen and generate code for the module
-	unique_ptr<Codegen> pCodegen( new Codegen );
+	Codegen codegen;
 	
 	// Add our environment's functions
 	{
 		vector<const llvm::Type*> pArgTypes;
 		pArgTypes.push_back( llvm::Type::getInt32Ty(llvm::getGlobalContext()) );
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printInt", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printInt", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printInt", (void*)printInt );
 	}
 
 	{
 		vector<const llvm::Type*> pArgTypes;
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printNewline", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printNewline", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printNewline", (void*)printNewline );
 	}
 
@@ -153,7 +119,7 @@ int main( int argc, char* argv[] ) {
 		vector<const llvm::Type*> pArgTypes;
 		pArgTypes.push_back( llvm::Type::getFloatTy(llvm::getGlobalContext()) );
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printFloat", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printFloat", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printFloat", (void*)printFloat );
 	}
 
@@ -161,14 +127,14 @@ int main( int argc, char* argv[] ) {
 		vector<const llvm::Type*> pArgTypes;
 		pArgTypes.push_back( llvm::Type::getDoubleTy(llvm::getGlobalContext()) );
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printDouble", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "printDouble", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "printDouble", (void*)printDouble );
 	}
 
 	{
 		vector<const llvm::Type*> pArgTypes;
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getInt32Ty(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "rand", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "rand", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "rand", (void*)rand_lib );
 		srand( time(NULL) );
 	}
@@ -177,7 +143,7 @@ int main( int argc, char* argv[] ) {
 		vector<const llvm::Type*> pArgTypes;
 		pArgTypes.push_back( llvm::Type::getInt64Ty(llvm::getGlobalContext()) );
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getInt8PtrTy(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "malloc", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "malloc", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "malloc", (void*)malloc_lib );
 	}
 
@@ -185,17 +151,17 @@ int main( int argc, char* argv[] ) {
 		vector<const llvm::Type*> pArgTypes;
 		pArgTypes.push_back( llvm::Type::getInt8PtrTy(llvm::getGlobalContext()) );
 		llvm::FunctionType* pFunctionType= llvm::FunctionType::get( llvm::Type::getVoidTy(llvm::getGlobalContext()), pArgTypes, false );
-		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "free", pCodegen->GetContext()->GetModule() );
+		llvm::Function* pFunction= llvm::Function::Create( pFunctionType, llvm::Function::ExternalLinkage, "free", codegen.GetContext()->GetModule() );
 		llvm::sys::DynamicLibrary::AddSymbol( "free", (void*)free_lib );
 	}
 
-	bool bCodegenSuccess= pCodegen->Run( pModule );
+	bool bCodegenSuccess= codegen.Run( pModule.get() );
 	if( !bCodegenSuccess ) return 1;
 
 	if( bVerbose ) cout << "Ran codegen successfully.\n";
 
 	// Look up the main() function
-	llvm::Function* pMainFunction= pCodegen->GetContext()->GetModule()->getFunction( "main" );
+	llvm::Function* pMainFunction= codegen.GetContext()->GetModule()->getFunction( "main" );
 	if( !pMainFunction ) {
 		cerr << "Could not resolve main()\n";
 		return 1;
@@ -214,8 +180,8 @@ int main( int argc, char* argv[] ) {
 	} // end if wrong argument type
 
 	// JIT the function, returning a function pointer
-	int32 (*mainFunc)(int32)= (int32(*)(int32))pCodegen->GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
-	pCodegen->GetContext()->GetModule()->dump();
+	int32 (*mainFunc)(int32)= (int32(*)(int32))codegen.GetContext()->GetExecutionEngine()->getPointerToFunction( pMainFunction );
+	codegen.GetContext()->GetModule()->dump();
   int mainRet= mainFunc(23);
 	if( bVerbose ) cout << "main() returned " << mainRet << endl;
 
