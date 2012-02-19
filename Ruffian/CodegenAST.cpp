@@ -743,7 +743,7 @@ void ForRangeAST::Codegen( CodegenContext& context, CodegenScope& scope ) const 
 	}
   
   // Compute the update expression: ++index
-  PrefixUnaryAST updateExpr( TOKEN_INCREMENT, m_pVariable );
+  PrefixUnaryAST updateExpr( SourceRange(), TOKEN_INCREMENT, m_pVariable );
 	Value* pUpdateValue= updateExpr.Codegen( context, scope );
 	if( !pUpdateValue ) return (void)ErrorCodegen( "Could not generate code in for loop update expression" );
 

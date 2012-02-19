@@ -90,7 +90,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">common.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="DiagContext.cpp" />
+    <ClCompile Include="DiagStream.cpp" />
     <ClCompile Include="ExprAST.cpp" />
+    <ClCompile Include="FormatStream.cpp" />
     <ClCompile Include="FunctionAST.cpp" />
     <ClCompile Include="Lexer.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
@@ -119,7 +122,10 @@
     <ClInclude Include="CodegenContext.h" />
     <ClInclude Include="CodegenScope.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="DiagContext.h" />
+    <ClInclude Include="DiagStream.h" />
     <ClInclude Include="ExprAST.h" />
+    <ClInclude Include="FormatStream.h" />
     <ClInclude Include="FunctionAST.h" />
     <ClInclude Include="Lexer.h" />
     <ClInclude Include="ModuleAST.h" />
@@ -128,6 +134,7 @@
     <ClInclude Include="SemCast.h" />
     <ClInclude Include="SemScope.h" />
     <ClInclude Include="SemUnaryOp.h" />
+    <ClInclude Include="SourceLocation.h" />
     <ClInclude Include="StmtAST.h" />
     <ClInclude Include="TypeAST.h" />
   </ItemGroup>
@@ -137,6 +144,7 @@
     <None Include="..\Spec\Casts.txt" />
     <None Include="..\Spec\Loops.txt" />
     <None Include="..\TODO" />
+    <None Include="diag_errors.inc" />
     <None Include="test.txt" />
     <None Include="TestMultipleBinop.txt" />
   </ItemGroup>

@@ -9,6 +9,7 @@ class CodegenContext; class CodegenScope;
 //! but do not return any value.
 class StmtAST {
 public:
+  StmtAST( const SourceRange& range ) : m_range(range) {}
 	virtual ~StmtAST() {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const= 0;
@@ -16,18 +17,24 @@ public:
 	//! Returns whether this generates code that has a return in the outermost basic block
 	bool HasReturn() const;
 
+  //! Returns our source range
+  SourceRange GetSourceRange() const { return m_range; }
+private:
+  const SourceRange m_range;
 }; // end class StmtAST
 
 
 //! Primary statement AST node base class. This is either a variable declaration or expression
 class PrimaryStmtAST : public StmtAST {
+public:
+  PrimaryStmtAST( const SourceRange& range ) : StmtAST(range) {}
 }; // end class PrimaryStmtAST
 
 
 class ReturnAST : public StmtAST {
 public:
 	//! Initialize with return expression
-	ReturnAST( const shared_ptr<ExprAST>& pExpr ) : m_pExpr(pExpr) {}
+	ReturnAST( const SourceRange& range, const shared_ptr<ExprAST>& pExpr ) : StmtAST(range), m_pExpr(pExpr) {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -38,8 +45,8 @@ private:
 class DeclarationAST : public PrimaryStmtAST {
 public:
 	//! Initialize with variable name, type, and optional initializer expression
-	DeclarationAST( const string& strName, const shared_ptr<const TypeAST>& pType, const shared_ptr<ExprAST>& pInitializer= NULL ) :
-		m_strName(strName), m_pType(pType), m_pInitializer(pInitializer) {
+	DeclarationAST( const SourceRange& range, const string& strName, const shared_ptr<const TypeAST>& pType, const shared_ptr<ExprAST>& pInitializer= NULL ) :
+		PrimaryStmtAST(range), m_strName(strName), m_pType(pType), m_pInitializer(pInitializer) {
 	} // end DeclarationAST()
 
 	//! Returns our name
@@ -61,7 +68,7 @@ private:
 class BlockAST : public StmtAST {
 public:
 	//! Initialize with our list of statements
-	BlockAST( const vector<shared_ptr<StmtAST>>& pStmts ) : m_pStmts(pStmts) {}
+	BlockAST( const SourceRange& range, const vector<shared_ptr<StmtAST>>& pStmts ) : StmtAST(range), m_pStmts(pStmts) {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -74,8 +81,8 @@ private:
 class ConditionalAST : public StmtAST {
 public:
 	//! Initialize with condition, true statement, and optional else statement
-	ConditionalAST( const shared_ptr<ExprAST>& pCondExpr, const shared_ptr<StmtAST>& pIfStmt, const shared_ptr<StmtAST>& pElseStmt ) :
-		m_pCondExpr(pCondExpr), m_pIfStmt(pIfStmt), m_pElseStmt(pElseStmt) { ASSERT( m_pIfStmt != NULL ); }
+	ConditionalAST( const SourceRange& range, const shared_ptr<ExprAST>& pCondExpr, const shared_ptr<StmtAST>& pIfStmt, const shared_ptr<StmtAST>& pElseStmt ) :
+		StmtAST(range), m_pCondExpr(pCondExpr), m_pIfStmt(pIfStmt), m_pElseStmt(pElseStmt) { ASSERT( m_pIfStmt != NULL ); }
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -89,8 +96,8 @@ private:
 class ForAST : public StmtAST {
 public:
 	//! Initialize with initializer statement, condition, and update expressions, plus the body statement
-	ForAST( const shared_ptr<PrimaryStmtAST>& pInitializer, const shared_ptr<ExprAST>& pCondition, const shared_ptr<ExprAST>& pUpdate, const shared_ptr<StmtAST>& pBody ) :
-		m_pInitializer(pInitializer), m_pCondition(pCondition), m_pUpdate(pUpdate), m_pBody(pBody) {}
+	ForAST( const SourceRange& range, const shared_ptr<PrimaryStmtAST>& pInitializer, const shared_ptr<ExprAST>& pCondition, const shared_ptr<ExprAST>& pUpdate, const shared_ptr<StmtAST>& pBody ) :
+		StmtAST(range), m_pInitializer(pInitializer), m_pCondition(pCondition), m_pUpdate(pUpdate), m_pBody(pBody) {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -105,14 +112,15 @@ private:
 class ForRangeAST : public StmtAST {
 public:
   //! Initialize with declaration, variable, begin, and end, plus the body statement
-  ForRangeAST( const shared_ptr<DeclarationAST>& pDeclaration, const shared_ptr<VariableAST>& pVariable,
+  ForRangeAST( const SourceRange& range, const shared_ptr<DeclarationAST>& pDeclaration, const shared_ptr<VariableAST>& pVariable,
                const shared_ptr<ExprAST>& pBegin, const shared_ptr<ExprAST>& pEnd, const shared_ptr<StmtAST>& pBody ) :
+    StmtAST(range),
     m_pDeclaration(pDeclaration), m_pVariable(pVariable),
     m_pBegin(pBegin), m_pEnd(pEnd), m_pBody(pBody) {}
   //! Initialize with variable, begin, and end, plus the body statement
-  ForRangeAST( const shared_ptr<VariableAST>& pVariable, const shared_ptr<ExprAST>& pBegin,
+  ForRangeAST( const SourceRange& range, const shared_ptr<VariableAST>& pVariable, const shared_ptr<ExprAST>& pBegin,
                const shared_ptr<ExprAST>& pEnd, const shared_ptr<StmtAST>& pBody ) :
-    m_pDeclaration(), m_pVariable(pVariable), m_pBegin(pBegin), m_pEnd(pEnd), m_pBody(pBody) {}
+    StmtAST(range), m_pDeclaration(), m_pVariable(pVariable), m_pBegin(pBegin), m_pEnd(pEnd), m_pBody(pBody) {}
   
   virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -127,7 +135,8 @@ private:
 class WhileAST : public StmtAST {
 public:
 	//! Initialize with condition and body
-	WhileAST( const shared_ptr<ExprAST>& pCondition, const shared_ptr<StmtAST>& pBody ) : m_pCondition(pCondition), m_pBody(pBody) {}
+	WhileAST( const SourceRange& range, const shared_ptr<ExprAST>& pCondition, const shared_ptr<StmtAST>& pBody ) :
+    StmtAST(range), m_pCondition(pCondition), m_pBody(pBody) {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
 private:
@@ -141,7 +150,7 @@ private:
 class ExprStmtAST : public PrimaryStmtAST {
 public:
 	//! Initialize with expression
-	ExprStmtAST( const shared_ptr<ExprAST>& pExpr ) : m_pExpr(pExpr) {}
+	ExprStmtAST( const SourceRange& range, const shared_ptr<ExprAST>& pExpr ) : PrimaryStmtAST(range), m_pExpr(pExpr) {}
 
 	virtual void Codegen( CodegenContext& context, CodegenScope& scope ) const;
   shared_ptr<ExprAST> GetExpr() { return m_pExpr; }

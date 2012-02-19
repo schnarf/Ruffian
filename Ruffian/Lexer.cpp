@@ -14,6 +14,10 @@ Lexer::Lexer( const string& strFilename ) :
   // Throw an exception if we couldn't open the file
   if( !m_pFile ) throw std::runtime_error( "Couldn't open the file" );
 
+  m_loc.iCol= 1;
+  m_loc.iLine= 1;
+  m_range= SourceRange(m_loc, m_loc);
+
 	// Prime the pump
 	GetNextToken();
 
@@ -123,10 +127,34 @@ bool Lexer::IsPostUnaryOpToken( Token token ) {
 	} // end switch token
 } // end Lexer::IsPostUnaryOpToken()
 
+namespace {
+  // Sentry to update the source range of the current token
+  class SourceRangeSentry {
+  public:
+    //! Initialize with reference to source range to update,
+    //! and source location to read from
+    SourceRangeSentry( SourceRange& sourceRange, SourceLocation& sourceLoc ) :
+        m_sourceRange(sourceRange), m_sourceLoc(sourceLoc) {
+      m_sourceRange.begin= m_sourceLoc;
+    }
+    //! Set the source range to end at the new source location
+    ~SourceRangeSentry() {
+      m_sourceRange.end= m_sourceLoc;
+    }
+  private:
+    SourceRange& m_sourceRange;
+    SourceLocation& m_sourceLoc;
+  }; // end class SourceRangeSentry
+} // end file-scope
+
 //! Gets the next token
 Token Lexer::getTok() {
 	// Skip any whitespace
 	while( isspace(m_lastChar) && m_lastChar != EOF ) readChar();
+
+  // Start keeping track of the source range. This makes it so
+  // whitespace won't be part of source ranges.
+  SourceRangeSentry( m_range, m_loc );
 
 	// Check for anything that starts with an alphabetic character,
 	// this can be either an identifier or some language keywords

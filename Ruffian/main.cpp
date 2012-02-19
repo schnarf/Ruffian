@@ -8,6 +8,7 @@
 #include <ctime>
 #include "llvm/Support/DynamicLibrary.h"
 #include "ModuleAST.h"
+#include "DiagContext.h"
 
 static void printInt( int i ) {
 	cout << i << endl;
@@ -84,11 +85,11 @@ int main( int argc, char* argv[] ) {
 
   // Create our parser. We'll feed the library file and then the source file to it.
   Parser parser;
-  if( !parser.Run(pLibLexer.get()) ) {
+  if( !parser.Run(*pLibLexer, DiagContext(strLibFilename)) ) {
     cerr << "Failed to parse the library\n";
     return 1;
   }
-  if( !parser.Run(pSourceLexer.get()) ) {
+  if( !parser.Run(*pSourceLexer, DiagContext(strSourceFilename)) ) {
     cerr << "Failed to parse the source\n";
     return 1;
   }

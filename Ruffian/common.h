@@ -9,6 +9,7 @@ using std::map;
 #include <memory>
 using std::shared_ptr; using std::unique_ptr;
 using std::dynamic_pointer_cast; using std::static_pointer_cast;
+using std::make_shared;
 
 #include <set>
 using std::set;
@@ -21,6 +22,9 @@ using std::vector;
 
 #include <utility>
 using std::pair; using std::make_pair;
+
+#include <deque>
+using std::deque;
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"

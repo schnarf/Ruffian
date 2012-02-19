@@ -1,9 +1,9 @@
 #pragma once
 
-class Lexer;
+class Lexer; class DiagContext; class SourceRange;
 enum Token;
 class DeclarationAST; class ExprAST; class FunctionAST; class ReturnAST; class VariableAST; class TypeAST;
-class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST;
+class BlockAST; class PrimaryExprAST; class CallAST; class LiteralAST; class ConditionalAST; class StmtAST; class ArraysizeAST;
 class PrototypeAST; class ModuleAST; class ForAST; class ForRangeAST; class PrimaryStmtAST; class CastAST; class WhileAST;
 
 class Parser {
@@ -15,12 +15,13 @@ public:
 
 	//! Runs the main parsing loop with the given lexer
   //! Returns TRUE on success or FALSE on failure
-	bool Run( Lexer* pLexer );
+	bool Run( Lexer& lexer, DiagContext& diagContext );
   //! Creates a module AST node from everything we've parsed so far
   ModuleAST* CreateModule();
 
 private:
-	Lexer* m_pLexer;			//!< Our lexer
+	Lexer* m_pLexer;			        //!< Our lexer
+  DiagContext* m_pDiagContext;  //!< Our diagnost, const SourceRange& rangeNameic context
 
   vector<shared_ptr<PrototypeAST>> m_pPrototypes;     //!< Our list of function prototypes
 	vector<shared_ptr<FunctionAST>> m_pFunctions;       //!< Our list of function definitions
@@ -34,7 +35,7 @@ private:
 	//! Parses a parenthesized expression
 	shared_ptr<ExprAST> parseParenExpression();
 	//! Parses an arraysize expression
-	shared_ptr<ExprAST> parseArraySizeExpression();
+	shared_ptr<ArraysizeAST> parseArraySizeExpression();
 
 	//! Parses a unary operator expression.
 	shared_ptr<ExprAST> parseUnaryOpExpression();
@@ -62,9 +63,9 @@ private:
 	//! Parses a type identifier.
 	shared_ptr<const TypeAST> parseType();
 	//! Parses a function call expression, having already parsed the function name
-	shared_ptr<CallAST> parseCallExpression( const string& strName );
+	shared_ptr<CallAST> parseCallExpression( const string& strName, const SourceRange& rangeName );
 	//! Parses a cast expression having already parsed the type name
-	shared_ptr<CastAST> parseCastExpression( const string& strType );
+	shared_ptr<CastAST> parseCastExpression( const string& strType, const SourceRange& rangeType );
 	//! Parses a numeric literal
 	shared_ptr<LiteralAST> parseLiteral();
 	//! Parses a conditional statement
@@ -77,7 +78,7 @@ private:
 	shared_ptr<WhileAST> parseWhileStatement();
 
 	//! Creates a numeric literal, given the type and its string representation
-	static shared_ptr<LiteralAST> makeLiteral( Token token, const string& strLiteral );
+	static shared_ptr<LiteralAST> makeLiteral( Token token, const string& strLiteral, const SourceRange& range );
 
 	//! Adds a variable declaration to the current scope. Returns false
 	//! if the variable already exists in scope
@@ -87,7 +88,7 @@ private:
 	bool addPrototypeToScope( const shared_ptr<PrototypeAST>& pPrototype );
 	//! Adds a type to the current scope. Returns false if the type
 	//! already exists in scope
-	bool addTypeToScope( const shared_ptr<const TypeAST>& pType );
+	bool addTypeToScope( const shared_ptr<const TypeAST>& pType, const SourceRange& range );
 	//! Sets that the function has been defined in scope. This should only
 	//! ever be called once per function.
 	void setFunctionDefinedInScope( const string& strName );
@@ -104,6 +105,15 @@ private:
 	//! Returns whether the specified function is defined in scope. If this is called
 	//! for a function that hasn't even been prototyped, also returns FALSE.
 	bool isFunctionDefinedInScope( const string& strName );
+
+  //! Called when we expect to find \a token.
+  //! If \a token is not found, emits an error message and returns FALSE,
+  //! otherwise returns TRUE
+  bool expectToken( Token token );
+  //! Called when we expect to find and consume \a token
+  //! If \a token is not found, emits an error message and return FALSE,
+  //! otherwise eats the token and returns TRUE
+  bool expectEatToken( Token token );
 
 	//! Sets the expected return type, should be used inside function bodies
 	void setExpectedReturnType( const shared_ptr<const TypeAST>& pReturnType ) { m_parseScope.pReturnType= pReturnType; }

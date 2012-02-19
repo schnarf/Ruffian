@@ -69,6 +69,15 @@
     <ClCompile Include="TypeAST.cpp">
       <Filter>Source Files\AST</Filter>
     </ClCompile>
+    <ClCompile Include="DiagContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FormatStream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DiagStream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lexer.h">
@@ -119,6 +128,18 @@
     <ClInclude Include="SemCast.h">
       <Filter>Header Files\Sem</Filter>
     </ClInclude>
+    <ClInclude Include="DiagContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SourceLocation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FormatStream.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DiagStream.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.txt">
@@ -141,6 +162,9 @@
     </None>
     <None Include="..\Spec\Loops.txt">
       <Filter>Resource Files\Spec</Filter>
+    </None>
+    <None Include="diag_errors.inc">
+      <Filter>Header Files</Filter>
     </None>
   </ItemGroup>
 </Project>

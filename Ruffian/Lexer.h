@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SourceLocation.h"
+
 enum Token {
 	TOKEN_LPAREN,
 	TOKEN_RPAREN,
@@ -60,10 +62,6 @@ enum Token {
 	NUM_TOKENS
 }; // end enum Token
 
-struct SourceLocation {
-  long iLine, iCol;   // 1-indexed line and column
-}; // end struct SourceLocation
-
 class Lexer {
 public:
 	//! Initialize with a filename
@@ -96,11 +94,14 @@ public:
   //! Returns our filename
   const string& GetFilename() const { return m_strFilename; }
   //! Returns our current location in the source code
-  SourceLocation GetSourceLocation() const { return m_loc; }
+  SourceLocation GetSourceLocation() const { return m_range.begin; }
+  //! Returns the source range for the current token
+  SourceRange GetSourceRange() const { return m_range; }
 private:
   const string m_strFilename; //!< Our filename
   shared_ptr<FILE> m_pFile;   //!< Our file to read from
   SourceLocation m_loc;       //!< Current source location
+  SourceRange m_range;
 
 	char m_lastChar;					  //!< Our last read character
 	Token m_currentToken;				//!< Our current token

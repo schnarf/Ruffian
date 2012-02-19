@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Lexer.h"
+#include "SourceLocation.h"
 
 class CodegenContext;
 class CodegenScope;
@@ -15,6 +16,7 @@ class LValueAST;
 //! Expressions evaluate to some value that has a type
 class ExprAST {
 public:
+  ExprAST( const SourceRange& range ) : m_range(range) {}
 	virtual ~ExprAST() {}
 
 	//! Returns the type of this expression
@@ -32,12 +34,17 @@ public:
 	//! Tries to cast this to an lvalue. If it is not an lvalue, returns NULL.
 	const LValueAST* ToLValue() const;
 
+  //! Returns our source range
+  SourceRange GetSourceRange() const { return m_range; }
+private:
+  const SourceRange m_range;
 }; // end class ExprAST
 
 
 //! Literal value AST node abstract base
 class LiteralAST : public ExprAST {
 public:
+  LiteralAST( const SourceRange& range ) : ExprAST(range) {}
 	virtual bool IsConstant() const { return true; }
 }; // end class LiteralAST
 
@@ -47,6 +54,7 @@ public:
 //! to generate code to compute this address
 class LValueAST : public ExprAST {
 public:
+  LValueAST( const SourceRange& range ) : ExprAST(range) {}
 	//! Generates code for the address of this expression
 	virtual Value* CodegenAddress( CodegenContext& context, CodegenScope& scope ) const= 0;
 }; // end class LValueAST
@@ -60,7 +68,8 @@ inline const LValueAST* ExprAST::ToLValue() const { return dynamic_cast<const LV
 class VariableAST : public LValueAST {
 public:
 	//! Initialize with declaration
-	VariableAST( const shared_ptr<DeclarationAST>& pDeclaration ) : m_pDeclaration(pDeclaration) { ASSERT( m_pDeclaration ); }
+	VariableAST( const SourceRange& range, const shared_ptr<DeclarationAST>& pDeclaration ) :
+      LValueAST(range), m_pDeclaration(pDeclaration) { ASSERT( m_pDeclaration ); }
 
 	//! Returns our variable name
 	const string& GetName() const;
@@ -79,7 +88,8 @@ private:
 class ArrayRefAST : public VariableAST {
 public:
 	//! Initialize with reference to array declaration and index expression
-	ArrayRefAST( const shared_ptr<DeclarationAST>& pDeclaration, const shared_ptr<ExprAST>& pIndex ) : VariableAST(pDeclaration), m_pIndex(pIndex) {}
+	ArrayRefAST( const SourceRange& range, const shared_ptr<DeclarationAST>& pDeclaration, const shared_ptr<ExprAST>& pIndex ) :
+      VariableAST(range, pDeclaration), m_pIndex(pIndex) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -94,7 +104,9 @@ private:
 class BinopAST : public ExprAST {
 public:
 	//! Initialize with operator, LHS, and RHS
-	BinopAST( Token binop, const shared_ptr<ExprAST>& pLeft, const shared_ptr<ExprAST>& pRight ) : m_binop(binop), m_pLeft(pLeft), m_pRight(pRight) {}
+	BinopAST( const SourceRange& range, Token binop, const shared_ptr<ExprAST>& pLeft,
+            const shared_ptr<ExprAST>& pRight ) :
+    ExprAST(range), m_binop(binop), m_pLeft(pLeft), m_pRight(pRight) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -110,7 +122,8 @@ private:
 class PrefixUnaryAST : public ExprAST {
 public:
 	//! Initialize with operator and operator
-	PrefixUnaryAST( Token op, const shared_ptr<ExprAST>& pExpr ) : m_op(op), m_pExpr(pExpr) {}
+	PrefixUnaryAST( const SourceRange& range, Token op, const shared_ptr<ExprAST>& pExpr ) :
+      ExprAST(range), m_op(op), m_pExpr(pExpr) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -125,7 +138,7 @@ private:
 class PostfixUnaryAST : public ExprAST {
 public:
 	//! Initialize with operator and operator
-	PostfixUnaryAST( Token op, const shared_ptr<ExprAST>& pExpr ) : m_op(op), m_pExpr(pExpr) {}
+	PostfixUnaryAST( const SourceRange& range, Token op, const shared_ptr<ExprAST>& pExpr ) : ExprAST(range), m_op(op), m_pExpr(pExpr) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -140,11 +153,11 @@ private:
 class IntegerAST : public LiteralAST {
 public:
 	//! Initialize with string representation of value
-	IntegerAST( const string& strValue ) : m_apValue(64, strValue, 10) {}
+	IntegerAST( const SourceRange& range, const string& strValue ) : LiteralAST(range), m_apValue(64, strValue, 10) {}
 	//! Initialize with signed integer value
-	IntegerAST( int64 iValue ) : m_apValue(64, iValue, true) {}
+	IntegerAST( const SourceRange& range, int64 iValue ) : LiteralAST(range), m_apValue(64, iValue, true) {}
 	//! Initialize with llvm arbitrary precision value
-	IntegerAST( const llvm::APInt& apValue ) : m_apValue(apValue) {}
+	IntegerAST( const SourceRange& range, const llvm::APInt& apValue ) : LiteralAST(range), m_apValue(apValue) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -160,11 +173,11 @@ private:
 class DoubleAST : public LiteralAST {
 public:
 	//! Initialize with string representation of value
-	DoubleAST( const string& strValue ) : m_apValue(llvm::APFloat::IEEEdouble, strValue) {}
+	DoubleAST( const SourceRange& range, const string& strValue ) : LiteralAST(range), m_apValue(llvm::APFloat::IEEEdouble, strValue) {}
 	//! Initialize with value
-	DoubleAST( double fValue ) : m_apValue(fValue) {}
+	DoubleAST( const SourceRange& range, double fValue ) : LiteralAST(range), m_apValue(fValue) {}
 	//! Initialize with llvm arbitrary precision value
-	DoubleAST( const llvm::APFloat& apValue ) : m_apValue(apValue) {}
+	DoubleAST( const SourceRange& range, const llvm::APFloat& apValue ) : LiteralAST(range), m_apValue(apValue) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -180,13 +193,14 @@ private:
 class BoolAST : public LiteralAST {
 public:
 	//! Initialize with string representation of value
-	BoolAST( const string& strValue ) {
+	BoolAST( const SourceRange& range, const string& strValue ) :
+    LiteralAST(range) {
 		if( strValue == "true" ) m_bValue= true;
 		else if( strValue == "false" ) m_bValue= false;
 		else { ASSERT( false ); m_bValue= false;}
 	} // end BoolAST()
 	//! Initialize with value
-	BoolAST( bool bValue ) : m_bValue(bValue) {}
+	BoolAST( const SourceRange& range, bool bValue ) : LiteralAST(range), m_bValue(bValue) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -199,7 +213,8 @@ private:
 class CallAST : public ExprAST {
 public:
 	//! Initialize with function prototype and argument list
-	CallAST( const shared_ptr<PrototypeAST>& pPrototype, const vector<shared_ptr<ExprAST>>& pArgs ) : m_pPrototype(pPrototype), m_pArgs(pArgs) {}
+	CallAST( const SourceRange& range, const shared_ptr<PrototypeAST>& pPrototype, const vector<shared_ptr<ExprAST>>& pArgs ) :
+      ExprAST(range), m_pPrototype(pPrototype), m_pArgs(pArgs) {}
 	
 	virtual const shared_ptr<const TypeAST>& GetType() const;
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -213,7 +228,8 @@ private:
 class CastAST : public ExprAST {
 public:
 	//! Initialize with the expression and target type
-	CastAST( const shared_ptr<ExprAST>& pExpr, const shared_ptr<const TypeAST>& pType ) : m_pExpr(pExpr), m_pType(pType) {}
+	CastAST( const SourceRange& range, const shared_ptr<ExprAST>& pExpr, const shared_ptr<const TypeAST>& pType ) :
+      ExprAST(range), m_pExpr(pExpr), m_pType(pType) {}
 
 	virtual const shared_ptr<const TypeAST>& GetType() const { return m_pType; }
 	virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const;
@@ -222,3 +238,17 @@ private:
 	shared_ptr<ExprAST> m_pExpr;
 	shared_ptr<const TypeAST> m_pType;
 }; // end class CastAST
+
+
+//! Array size AST node
+class ArraysizeAST : public ExprAST {
+public:
+  //! Initialize with the source range and expression
+  ArraysizeAST( const SourceRange& range, const shared_ptr<ExprAST>& pExpr ) : ExprAST(range), m_pExpr(pExpr) {}
+
+  virtual const shared_ptr<const TypeAST>& GetType() const { return m_pExpr->GetType(); }
+  virtual Value* Codegen( CodegenContext& context, CodegenScope& scope ) const { return m_pExpr->Codegen( context, scope ); }
+	virtual bool IsConstant() const { return m_pExpr->IsConstant(); }
+private:
+  shared_ptr<ExprAST> m_pExpr;
+}; // end class ArraysizeAST
